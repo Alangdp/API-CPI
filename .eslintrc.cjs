@@ -16,5 +16,7 @@ module.exports = {
   plugins: ['prettier'],
   rules: {
     'prettier/prettier': 'warn',
+    'class-methods-use-this': 0,
+    'import/extensions': 0,
   },
 };

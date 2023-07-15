@@ -1,14 +1,20 @@
-export function erroSequelizeFilter(error) {
+export const teste = 123;
+
+export function erroSequelizeFilter(errorType) {
   const errorsMessages = [];
   if (
-    error.name !== undefined &&
-    error.name === 'SequelizeConnectionRefusedError'
+    errorType.name !== undefined &&
+    errorType.name === 'SequelizeConnectionRefusedError'
   )
     return { msg: 'SequelizeConnectionRefusedError' };
 
-  error.errors.forEach((error) => {
-    errorsMessages.push(error.message);
-  });
+  try {
+    errorType.errors.forEach((error) => {
+      errorsMessages.push(error.message);
+    });
 
-  return errorsMessages;
+    return { msg: errorsMessages };
+  } catch (error) {
+    return { msg: error.message };
+  }
 }

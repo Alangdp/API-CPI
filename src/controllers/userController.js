@@ -2,7 +2,7 @@ import User from '../models/User.js';
 
 import { erroSequelizeFilter } from '../utils/Controllers.js';
 
-class userController {
+class UserController {
   async show(req, res) {
     try {
       const users = await User.findAll();
@@ -20,7 +20,7 @@ class userController {
         ...data,
       });
 
-      res.status(200).json(newUser);
+      return res.status(200).json(newUser);
     } catch (error) {
       const errorsMessages = erroSequelizeFilter(error);
       return res.status(400).json(errorsMessages);
@@ -29,15 +29,16 @@ class userController {
 
   async delete(req, res) {
     try {
-      const id = req.params['id'];
+      const { id } = req.params;
       const user = await User.findByPk(id);
-      if (user === null) res.status(400).json({ message: 'invalid id' });
+      if (user === null) return res.status(400).json({ message: 'invalid id' });
       const deletedCount = await user.destroy();
       if (deletedCount)
-        res
+        return res
           .status(200)
           .json({ message: 'user has been deleted', userDeleted: user });
-      res.status(400).json({ message: 'user not recorded' });
+
+      return res.status(400).json({ message: 'user not recorded' });
     } catch (error) {
       const errorsMessages = erroSequelizeFilter(error);
       return res.status(400).json(errorsMessages);
@@ -46,11 +47,14 @@ class userController {
 
   async patch(req, res) {
     try {
-      const id = req.params['id'];
+      const { id } = req.params;
+      const data = req.body;
       const userToUpdate = await User.findByPk(id);
-      const status = await userToUpdate.update({ ...req.body });
+      await userToUpdate.update({ ...data });
 
-      res.status(200).json(userToUpdate);
+      return res
+        .status(200)
+        .json({ msg: 'user has been updated', userUpdated: userToUpdate });
     } catch (error) {
       const errorsMessages = erroSequelizeFilter(error);
       return res.status(400).json(errorsMessages);
@@ -58,4 +62,4 @@ class userController {
   }
 }
 
-export default new userController();
+export default new UserController();

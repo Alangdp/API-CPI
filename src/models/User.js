@@ -44,7 +44,7 @@ export default class User extends Model {
         },
 
         password_hash: {
-          type: Sequelize.VIRTUAL,
+          type: Sequelize.STRING,
           defaultValue: '',
         },
 
@@ -86,9 +86,11 @@ export default class User extends Model {
       { sequelize }
     );
 
-    this.addHook('beforeSave', async (user) => {
+    // eslint-disable-next-line
+    this.addHook('beforeSave', (user) => {
       try {
-        user.password_hash = await bcrypjs.hash(user.password, 8);
+        // eslint-disable-next-line
+        user.password_hash = bcrypjs.hashSync(user.password, 8);
       } catch (error) {
         return null;
       }
@@ -97,3 +99,13 @@ export default class User extends Model {
     return this;
   }
 }
+
+// eslint-disable-next-line
+User.prototype.validatePassword = function (password) {
+  try {
+    const valid = bcrypjs.compareSync(password, this.password_hash);
+    return valid;
+  } catch (error) {
+    return false;
+  }
+};

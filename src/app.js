@@ -3,9 +3,12 @@ import express from 'express';
 // import helmet from 'helmet';
 import dotenv from 'dotenv';
 
+// eslint-disable-next-line
 import models from './database/index.js';
 
 import userRoutes from './routes/userRoutes.js';
+import tokenRoutes from './routes/tokenRoutes.js';
+
 dotenv.config();
 
 // CONFIGURACOES DO CORS
@@ -41,6 +44,7 @@ class App {
 
   routes() {
     this.app.use('/user', userRoutes);
+    this.app.use('/token', tokenRoutes);
   }
 }
 
