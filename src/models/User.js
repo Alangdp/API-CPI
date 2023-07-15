@@ -2,14 +2,6 @@ import Sequelize, { Model } from 'sequelize';
 import bcrypjs from 'bcryptjs';
 
 export default class User extends Model {
-  validateCellphone = (value) => {
-    const cellphoneRegex =
-      /^(\+\d{1,3}\s?)?(?:\(\d{2}\))?(?:9\d{4}|\d{4})[-\s]?\d{4}$/;
-    if (!cellphoneRegex.test(value)) {
-      throw new Error('Invalid cellphone number');
-    }
-  };
-
   static init(sequelize) {
     super.init(
       {
@@ -41,7 +33,14 @@ export default class User extends Model {
 
         phonenumber: {
           type: Sequelize.STRING,
-          defaultValue: '',
+          validate: {
+            validateCellphone(value) {
+              const cellphoneRegex = /^[1-9]{2}9?[0-9]{8}$/;
+              if (!cellphoneRegex.test(value)) {
+                throw new Error('Invalid cellphone number');
+              }
+            },
+          },
         },
 
         password_hash: {
@@ -57,15 +56,42 @@ export default class User extends Model {
               args: [8, 50],
               msg: 'Password field must be between 8 and 50 characters',
             },
+
+            containsLowerCase(value) {
+              if (!/[a-z]/.test(value)) {
+                throw new Error('Password must contain lowercase letters');
+              }
+            },
+
+            containsUppercase(value) {
+              if (!/[A-Z]/.test(value)) {
+                throw new Error('Password must contain capital letters');
+              }
+            },
           },
         },
-        cpf: Sequelize.STRING,
+        cpf: {
+          type: Sequelize.STRING,
+          validate: {
+            validateCPF(value) {
+              const CPFRegex =
+                /([0-9]{2}[\.]?[0-9]{3}[\.]?[0-9]{3}[\/]?[0-9]{4}[-]?[0-9]{2})|([0-9]{3}[\.]?[0-9]{3}[\.]?[0-9]{3}[-]?[0-9]{2})/;
+              if (!CPFRegex.test(value)) {
+                throw new Error('Invalid CPF number');
+              }
+            },
+          },
+        },
       },
       { sequelize }
     );
 
     this.addHook('beforeSave', async (user) => {
-      user.password_hash = await bcrypjs.hash(user.password, 8);
+      try {
+        user.password_hash = await bcrypjs.hash(user.password, 8);
+      } catch (error) {
+        return null;
+      }
     });
 
     return this;
