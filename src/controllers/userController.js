@@ -1,6 +1,6 @@
 import User from '../models/User.js';
 
-import { erroSequelizeFilter } from '../utils/Controllers.js';
+import { erroSequelizeFilter } from '../utils/controllersExtra.js';
 
 class UserController {
   async show(req, res) {

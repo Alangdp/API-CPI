@@ -1,13 +1,16 @@
 import express from 'express';
+import dotenv from 'dotenv';
+import schedule from 'node-schedule';
 // import cors from 'cors';
 // import helmet from 'helmet';
-import dotenv from 'dotenv';
 
 // eslint-disable-next-line
+import axios from 'axios';
 import models from './database/index.js';
 
 import userRoutes from './routes/userRoutes.js';
 import tokenRoutes from './routes/tokenRoutes.js';
+import stockRoutes from './routes/stocksRouter.js';
 
 dotenv.config();
 
@@ -28,11 +31,24 @@ dotenv.config();
 //   },
 // };
 
+const updatedData = () => {
+  axios.post('http://localhost:3000/stocks', {
+    all: true,
+    backup: true,
+  });
+};
+
 class App {
   constructor() {
     this.app = express();
     this.middlewares();
     this.routes();
+    this.schedulers();
+  }
+
+  schedulers() {
+    console.log('Schedule ativado');
+    schedule.scheduleJob('*/30 * * * *', updatedData);
   }
 
   middlewares() {
@@ -45,6 +61,7 @@ class App {
   routes() {
     this.app.use('/user', userRoutes);
     this.app.use('/token', tokenRoutes);
+    this.app.use('/stocks', stockRoutes);
   }
 }
 
