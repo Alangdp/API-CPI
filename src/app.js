@@ -47,7 +47,7 @@ class App {
   }
 
   schedulers() {
-    console.log('Schedule ativado');
+    console.log('Schedules activate');
     schedule.scheduleJob('*/30 * * * *', updatedData);
   }
 
