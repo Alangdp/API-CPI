@@ -1,9 +1,23 @@
 import Stock, { createMultipleStockData } from '../models/Stock.js';
+import { registerItem, updateUserChartData } from '../models/UserChart.js';
 
 // eslint-disable-next-line
 import { erroSequelizeFilter } from '../utils/controllersExtra.js';
 
-class UserController {
+class StockController {
+  async storeChart(req, res) {
+    const data = req.body;
+    data.id = req.userId;
+    const userChart = await registerItem(data);
+
+    return res.status(200).json({ userChart });
+  }
+
+  async updateCharts(req, res) {
+    const data = await updateUserChartData();
+    return res.status(200).json({ data });
+  }
+
   async store(req, res) {
     const { all, backup, ticker } = req.body;
 
@@ -30,4 +44,4 @@ class UserController {
   }
 }
 
-export default new UserController();
+export default new StockController();

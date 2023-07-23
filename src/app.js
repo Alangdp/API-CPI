@@ -8,13 +8,18 @@ import schedule from 'node-schedule';
 import axios from 'axios';
 import models from './database/index.js';
 
+// Utils
+
+import { readJSONFromFile, saveTickerJson } from './utils/getFuncions.js';
+
+// Routes
 import userRoutes from './routes/userRoutes.js';
 import tokenRoutes from './routes/tokenRoutes.js';
 import stockRoutes from './routes/stocksRouter.js';
 
 dotenv.config();
 
-// CONFIGURACOES DO CORS
+// Cors config
 // const whiteList = [
 //   "http://192.168.1.83",
 //   "http://localhost:3000",
@@ -31,15 +36,34 @@ dotenv.config();
 //   },
 // };
 
-const updatedData = () => {
-  axios.post('http://localhost:3000/stocks', {
-    all: true,
-    backup: true,
-  });
-};
+class Schudelers {
+  updatedData() {
+    axios.post('http://localhost:3000/stocks/userChart', {
+      password: process.env.SECRET_TOKEN,
+      all: true,
+      backup: true,
+    });
+  }
+
+  updateTickersJson() {
+    return saveTickerJson();
+  }
+
+  updatedChartData() {
+    axios.patch('http://localhost:3000/stocks/userChart', {
+      password: process.env.SECRET_TOKEN,
+    });
+  }
+}
 
 class App {
   constructor() {
+    // App virables
+
+    // Schuderls
+    this.Schuduler = new Schudelers();
+
+    // Express
     this.app = express();
     this.middlewares();
     this.routes();
@@ -48,7 +72,9 @@ class App {
 
   schedulers() {
     console.log('Schedules activate');
-    schedule.scheduleJob('*/30 * * * *', updatedData);
+    schedule.scheduleJob('*/30 * * * *', this.Schuduler.updatedData);
+    schedule.scheduleJob('*/15 * * * *', this.Schuduler.updatedChartData);
+    schedule.scheduleJob('0 */12 * * *', this.Schuduler.updateTickersJson);
   }
 
   middlewares() {

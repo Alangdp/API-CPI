@@ -3,10 +3,16 @@ import axios from 'axios';
 import cheerio from 'cheerio';
 
 import fs, { stat } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export function readJSONFromFile(filename) {
+  const absolutePath = path.resolve(__dirname, '..', 'json', filename);
   try {
-    const jsonData = fs.readFileSync(filename, 'utf8');
+    const jsonData = fs.readFileSync(absolutePath, 'utf8');
     return JSON.parse(jsonData);
   } catch (err) {
     console.error('Erro ao ler o arquivo JSON:', err);
@@ -15,16 +21,26 @@ export function readJSONFromFile(filename) {
 }
 
 export function saveJSONToFile(jsonData, filename) {
-  fs.writeFile(filename, JSON.stringify(jsonData, null, 2), 'utf8', (err) => {
-    if (err) {
-      console.error(err);
-      return;
+  const absolutePath = path.resolve(__dirname, filename);
+  if (fs.existsSync(absolutePath)) {
+    fs.unlinkSync(absolutePath); // Remover o arquivo caso já exista
+  }
+
+  fs.writeFile(
+    absolutePath,
+    JSON.stringify(jsonData, null, 2),
+    'utf8',
+    (err) => {
+      if (err) {
+        console.error(err);
+        return;
+      }
+      console.log('Arquivo salvo com sucesso!');
     }
-    console.log('Arquivo salvo com sucesso!');
-  });
+  );
 }
 
-let range = (n) => [...Array(n).keys()];
+const range = (n) => [...Array(n).keys()];
 
 export const getLastFiveYears = () => {
   const actualYear = new Date();
@@ -64,6 +80,10 @@ export async function getAllTickers() {
     }
     console.log(error);
   }
+}
+
+export async function saveTickerJson() {
+  saveJSONToFile(await getAllTickers(), 'tickers.json');
 }
 
 export async function getBasicInfo(ticker = null) {

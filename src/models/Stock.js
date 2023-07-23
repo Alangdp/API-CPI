@@ -48,7 +48,7 @@ export async function createMultipleStockData(getWithApi = true) {
   }
 }
 
-async function updateOrCreateStock(data) {
+export async function updateOrCreateStock(data) {
   try {
     const existingStock = await Stock.findOne({
       where: { ticker: data.ticker },

@@ -18,5 +18,6 @@ module.exports = {
     'prettier/prettier': 'warn',
     'class-methods-use-this': 0,
     'import/extensions': 0,
+    'max-classes-per-file': 0,
   },
 };
