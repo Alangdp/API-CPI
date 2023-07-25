@@ -35,12 +35,18 @@ class StockController {
   }
 
   async show(req, res) {
-    let { ticker } = req.params;
-    ticker = ticker ? ticker.toUpperCase() : null;
+    try {
+      let { ticker } = req.params;
+      ticker = ticker ? ticker.toUpperCase() : null;
 
-    const stock = await Stock.findOne({ where: { ticker } });
-    if (stock === null) return res.status(200).json({ msg: 'Invalid Ticker' });
-    return res.status(200).json({ data: stock });
+      const stock = await Stock.findOne({ where: { ticker } });
+      if (stock === null)
+        return res.status(200).json({ msg: 'Invalid Ticker' });
+      return res.status(200).json({ data: stock });
+    } catch (err) {
+      const error = erroSequelizeFilter(err);
+      return res.status(500).json(error);
+    }
   }
 }
 

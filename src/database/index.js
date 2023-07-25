@@ -4,8 +4,9 @@ import databaseConfig from '../config/database.js';
 import User from '../models/User.js';
 import Stock from '../models/Stock.js';
 import UserChart from '../models/UserChart.js';
+import Transation from '../models/Transation.js';
 
-const models = [User, Stock, UserChart];
+const models = [User, Stock, UserChart, Transation];
 const connection = new Sequelize(databaseConfig);
 
 /* eslint-disable */

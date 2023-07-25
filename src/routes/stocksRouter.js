@@ -7,7 +7,7 @@ import loginMiddleware from '../middleware/loginMiddleware.js';
 const router = new Router();
 
 router.post('/', adminMiddleware, stocksController.store);
-// router.post('/:ticker', adminMiddleware, stocksController.show);
+router.get('/:ticker', adminMiddleware, stocksController.show);
 router.post('/userChart/', loginMiddleware, stocksController.storeChart);
 router.patch('/userChart/', adminMiddleware, stocksController.updateCharts);
 

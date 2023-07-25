@@ -1,13 +1,14 @@
 import Sequelize, { Model } from 'sequelize';
 
 import User from './User.js';
+import Stock from './Stock.js';
+import Transation from './Transation.js';
 
 import {
   readJSONFromFile,
   getBasicInfo,
   getPrice,
 } from '../utils/getFuncions.js';
-import Stock from './Stock.js';
 
 const tickers = readJSONFromFile('tickers.json');
 
@@ -126,6 +127,7 @@ export async function updateUserChartData() {
       await chart.update({ actualPrice: tickerInfo.actualPrice });
     } else {
       const newTickerInfo = await Stock.registerStock(chart.ticker);
+      await chart.update({ actualPrice: newTickerInfo.actualPrice });
       TickerInfos.push(newTickerInfo);
     }
     /* eslint-enable */
@@ -151,7 +153,7 @@ export async function registerItem(data) {
     Stock.registerStock(data.ticker);
   }
 
-  const returnData = {
+  const userChartData = {
     user_id: data.id,
     ticker: data.ticker,
     Quantity: data.Quantity,
@@ -159,6 +161,16 @@ export async function registerItem(data) {
     actualPrice: TickerInfo.actualPrice,
   };
 
-  const userChart = await UserChart.create(returnData);
-  return userChart;
+  const transationData = {
+    user_id: data.id,
+    ticker: data.ticker,
+    typeCode: data.typeCode,
+    price: data.price,
+    quantity: data.Quantity,
+    brokerCode: data.brokerCode,
+  };
+
+  const TransationData = await Transation.create(transationData);
+  const userChart = await UserChart.create(userChartData);
+  return { userChart, TransationData };
 }

@@ -38,7 +38,7 @@ dotenv.config();
 
 class Schudelers {
   updatedData() {
-    axios.post('http://localhost:3000/stocks/userChart', {
+    axios.post('http://localhost:3000/stocks/', {
       password: process.env.SECRET_TOKEN,
       all: true,
       backup: true,
