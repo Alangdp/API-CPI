@@ -82,8 +82,9 @@ export default class Transation extends Model {
         },
 
         typeCode: {
-          type: Sequelize.VIRTUAL,
+          type: Sequelize.INTEGER,
           allowNull: false,
+          field: 'typeCode',
         },
       },
 

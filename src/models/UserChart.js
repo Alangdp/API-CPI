@@ -47,10 +47,10 @@ export default class UserChart extends Model {
           allowNull: false,
         },
 
-        buyPrice: {
+        medianPrice: {
           type: Sequelize.FLOAT,
           allowNull: false,
-          field: 'buyPrice',
+          field: 'medianPrice',
         },
 
         buyDate: {
@@ -97,9 +97,10 @@ export default class UserChart extends Model {
       if (userChart.Quantity && userChart.actualPrice) {
         const amountPrice = userChart.Quantity * userChart.actualPrice;
         const profitPrejudice =
-          userChart.Quantity * (userChart.actualPrice - userChart.buyPrice);
+          userChart.Quantity * (userChart.actualPrice - userChart.medianPrice);
         const profitPrejudicePorcent =
-          (profitPrejudice / (userChart.Quantity * userChart.buyPrice)) * 100;
+          (profitPrejudice / (userChart.Quantity * userChart.medianPrice)) *
+          100;
 
         /* eslint-disable */
         userChart.amountPrice = amountPrice;
@@ -136,6 +137,14 @@ export async function updateUserChartData() {
   return UsersChart;
 }
 
+async function userAlreadyOwnsStocks(userChartData) {
+  const userData = await UserChart.findOne({
+    where: { user_id: userChartData.user_id, ticker: userChartData.ticker },
+  });
+
+  return userData;
+}
+
 export async function registerItem(data) {
   let TickerInfo;
 
@@ -153,14 +162,6 @@ export async function registerItem(data) {
     Stock.registerStock(data.ticker);
   }
 
-  const userChartData = {
-    user_id: data.id,
-    ticker: data.ticker,
-    Quantity: data.Quantity,
-    buyPrice: data.price,
-    actualPrice: TickerInfo.actualPrice,
-  };
-
   const transationData = {
     user_id: data.id,
     ticker: data.ticker,
@@ -171,6 +172,39 @@ export async function registerItem(data) {
   };
 
   const TransationData = await Transation.create(transationData);
-  const userChart = await UserChart.create(userChartData);
-  return { userChart, TransationData };
+  const UserTransations = await Transation.findAll({
+    where: { user_id: transationData.user_id, ticker: transationData.ticker },
+  });
+
+  let stockQuantity = 0;
+  let stockValue = 0;
+  let medianPrice = 0;
+
+  UserTransations.forEach((transationDataInfo) => {
+    if (transationDataInfo.typeCode === 0) {
+      stockValue += transationDataInfo.totalValue;
+      stockQuantity += transationDataInfo.quantity;
+    }
+
+    medianPrice = stockValue / stockQuantity;
+  });
+
+  const userChartData = {
+    user_id: data.id,
+    ticker: data.ticker,
+    Quantity: stockQuantity,
+    buyPrice: data.price,
+    medianPrice,
+    actualPrice: TickerInfo.actualPrice,
+  };
+
+  let userData = await userAlreadyOwnsStocks(userChartData);
+
+  if (userData) {
+    userData = await userData.update(userChartData);
+  } else {
+    userData = await UserChart.create(userChartData);
+  }
+
+  return { TransationData, userData };
 }
