@@ -6,32 +6,47 @@ import { erroSequelizeFilter } from '../utils/controllersExtra.js';
 
 class StockController {
   async storeChart(req, res) {
-    const data = req.body;
-    data.id = req.userId;
-    const userChart = await registerItem(data);
+    try {
+      const data = req.body;
+      data.id = req.userId;
+      const userChart = await registerItem(data);
 
-    return res.status(200).json({ userChart });
+      return res.status(200).json({ userChart });
+    } catch (err) {
+      const erroList = erroSequelizeFilter(err);
+      return res.status(400).json(erroList);
+    }
   }
 
   async updateCharts(req, res) {
-    const data = await updateUserChartData();
-    return res.status(200).json({ data });
+    try {
+      const data = await updateUserChartData();
+      return res.status(200).json({ data });
+    } catch (err) {
+      const erroList = erroSequelizeFilter(err);
+      return res.status(400).json(erroList);
+    }
   }
 
   async store(req, res) {
-    const { all, backup, ticker } = req.body;
+    try {
+      const { all, backup, ticker } = req.body;
 
-    if (all === true) {
-      if (backup) {
-        createMultipleStockData(false);
-        return res.status(200).json({ msg: 'Backup Data used' });
+      if (all === true) {
+        if (backup) {
+          createMultipleStockData(false);
+          return res.status(200).json({ msg: 'Backup Data used' });
+        }
+
+        createMultipleStockData(true);
+        return res.status(200).json({ msg: 'All data updated' });
       }
-
-      createMultipleStockData(true);
-      return res.status(200).json({ msg: 'All data updated' });
+      const stock = await Stock.registerStock(ticker);
+      return res.status(200).json({ data: stock });
+    } catch (err) {
+      const erroList = erroSequelizeFilter(err);
+      return res.status(400).json(erroList);
     }
-    const stock = await Stock.registerStock(ticker);
-    return res.status(200).json({ data: stock });
   }
 
   async show(req, res) {

@@ -145,16 +145,21 @@ async function userAlreadyOwnsStocks(userChartData) {
   return userData;
 }
 
+function IsNull(message = 'Error') {
+  throw new Error(message);
+}
+
 export async function registerItem(data) {
   let TickerInfo;
 
   try {
     TickerInfo = await Stock.findOne({ where: { ticker: data.ticker } });
+    if (TickerInfo === null) throw new Error('Not in DB');
   } catch (err) {
     TickerInfo = await Stock.registerStock(data.ticker);
   }
 
-  const lastUpdated = new Date(TickerInfo.updatedAt);
+  const lastUpdated = new Date(TickerInfo.updatedAt || '2000-01-01');
   const actualDate = new Date();
   const timeDiferenceInMinutes = (actualDate - lastUpdated) / (1000 * 60);
 
@@ -167,7 +172,7 @@ export async function registerItem(data) {
     ticker: data.ticker,
     typeCode: data.typeCode,
     price: data.price,
-    quantity: data.Quantity,
+    quantity: data.Quantity || IsNull('Invalid Quantity'),
     brokerCode: data.brokerCode,
   };
 
