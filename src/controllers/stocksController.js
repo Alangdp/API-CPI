@@ -1,5 +1,9 @@
 import Stock, { createMultipleStockData } from '../models/Stock.js';
 import { registerItem, updateUserChartData } from '../models/UserChart.js';
+import {
+  saveOrUpdatedHistory,
+  saveOrUpdatedAllHistory,
+} from '../models/HistoryChart.js';
 
 // eslint-disable-next-line
 import { erroSequelizeFilter } from '../utils/controllersExtra.js';
@@ -12,6 +16,16 @@ class StockController {
       const userChart = await registerItem(data);
 
       return res.status(200).json({ userChart });
+    } catch (err) {
+      const erroList = erroSequelizeFilter(err);
+      return res.status(400).json(erroList);
+    }
+  }
+
+  async updateHistory(req, res) {
+    try {
+      const data = await saveOrUpdatedAllHistory();
+      return res.status(200).json({ data });
     } catch (err) {
       const erroList = erroSequelizeFilter(err);
       return res.status(400).json(erroList);

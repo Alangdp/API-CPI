@@ -49,8 +49,14 @@ class Schudelers {
     return saveTickerJson();
   }
 
-  updatedChartData() {
+  updateChartData() {
     axios.patch('http://localhost:3000/stocks/userChart', {
+      password: process.env.SECRET_TOKEN,
+    });
+  }
+
+  updateHistory() {
+    axios.post('http://localhost:3000/stocks/chartHistory', {
       password: process.env.SECRET_TOKEN,
     });
   }
@@ -73,7 +79,7 @@ class App {
   schedulers() {
     console.log('Schedules activate');
     schedule.scheduleJob('*/30 * * * *', this.Schuduler.updatedData);
-    schedule.scheduleJob('*/15 * * * *', this.Schuduler.updatedChartData);
+    schedule.scheduleJob('*/15 * * * *', this.Schuduler.updateChartData);
     schedule.scheduleJob('0 */12 * * *', this.Schuduler.updateTickersJson);
   }
 

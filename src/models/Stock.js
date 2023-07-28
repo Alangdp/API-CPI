@@ -66,6 +66,7 @@ export async function updateOrCreateStock(data) {
       return await Stock.create(data);
     }
   } catch (error) {
+    return erroSequelizeFilter(error);
     console.error('Erro ao atualizar/criar registro:', error);
   }
 }

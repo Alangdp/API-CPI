@@ -21,7 +21,7 @@ export function readJSONFromFile(filename) {
 }
 
 export function saveJSONToFile(jsonData, filename) {
-  const absolutePath = path.resolve(__dirname, filename);
+  const absolutePath = path.resolve(__dirname, '..', 'json', filename);
   if (fs.existsSync(absolutePath)) {
     fs.unlinkSync(absolutePath); // Remover o arquivo caso já exista
   }

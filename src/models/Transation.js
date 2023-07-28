@@ -1,4 +1,4 @@
-import { Sequelize, Model } from 'sequelize';
+import Sequelize, { Model } from 'sequelize';
 
 // const types = {
 //   0: 'Compra de Ações',

@@ -116,6 +116,27 @@ export default class UserChart extends Model {
   }
 }
 
+async function medianPrice(id, ticker) {
+  const UserTransations = await Transation.findAll({
+    where: { user_id: id, ticker },
+  });
+
+  let stockQuantity = 0;
+  let stockValue = 0;
+  let median = 0;
+
+  UserTransations.forEach((transationDataInfo) => {
+    if (transationDataInfo.typeCode === 0) {
+      stockValue += transationDataInfo.totalValue;
+      stockQuantity += transationDataInfo.quantity;
+    }
+
+    median = stockValue / stockQuantity;
+  });
+
+  return { median, quantity: stockQuantity };
+}
+
 export async function updateUserChartData() {
   const UsersChart = await UserChart.findAll();
   const TickerInfos = [];
@@ -177,39 +198,21 @@ export async function registerItem(data) {
   };
 
   const TransationData = await Transation.create(transationData);
-  const UserTransations = await Transation.findAll({
-    where: { user_id: transationData.user_id, ticker: transationData.ticker },
-  });
-
-  let stockQuantity = 0;
-  let stockValue = 0;
-  let medianPrice = 0;
-
-  UserTransations.forEach((transationDataInfo) => {
-    if (transationDataInfo.typeCode === 0) {
-      stockValue += transationDataInfo.totalValue;
-      stockQuantity += transationDataInfo.quantity;
-    }
-
-    medianPrice = stockValue / stockQuantity;
-  });
+  const mediaPrice = await medianPrice(data.id, data.ticker);
 
   const userChartData = {
     user_id: data.id,
     ticker: data.ticker,
-    Quantity: stockQuantity,
+    Quantity: mediaPrice.quantity,
     buyPrice: data.price,
-    medianPrice,
+    medianPrice: mediaPrice.median,
     actualPrice: TickerInfo.actualPrice,
   };
 
   let userData = await userAlreadyOwnsStocks(userChartData);
 
-  if (userData) {
-    userData = await userData.update(userChartData);
-  } else {
-    userData = await UserChart.create(userChartData);
-  }
+  if (userData) userData = await userData.update(userChartData);
+  else userData = await UserChart.create(userChartData);
 
   return { TransationData, userData };
 }
