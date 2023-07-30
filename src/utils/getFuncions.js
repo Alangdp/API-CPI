@@ -102,18 +102,49 @@ export async function getBasicInfo(ticker = null) {
     const info = await axios.request(options);
 
     const $ = cheerio.load(info.data);
-    const name = $('title').text();
+
+    const totalStocksInCirculation = $(
+      'div[title="Total de papéis disponíveis para negociação"] div strong'
+    ).text();
+
+    const freeFloat = Number(
+      $(
+        '#company-section > div:nth-child(1) > div > div.top-info.info-3.sm.d-flex.justify-between.mb-3 > div:nth-child(11) > div > div > strong'
+      )
+        .text()
+        .replace('%', '')
+        .replace(',', '.')
+    );
+
+    const netEquity = $(
+      '#company-section > div:nth-child(1) > div > div.top-info.info-3.sm.d-flex.justify-between.mb-3 > div:nth-child(1) > div > div > strong'
+    ).text();
+
+    const marketValue = $(
+      '#company-section > div:nth-child(1) > div > div.top-info.info-3.sm.d-flex.justify-between.mb-3 > div:nth-child(7) > div > div > strong'
+    ).text();
+
     const data = {
-      name,
+      name: $('title').text(),
+      totalStocksInCirculation,
+      freeFloat,
+      netEquity,
+      marketValue,
     };
 
+    const values = [];
+    console.log();
     return data;
   } catch (error) {
-    if (error.response.status === 404) {
+    console.log(error);
+    if (error.response && error.response.status === 404) {
       throw new Error('Invalid Ticker');
     }
+    throw new Error('Error in Request');
   }
 }
+
+console.log(await getBasicInfo('BBAS3'));
 
 export async function getPrice(ticker = null) {
   ticker = ticker ? ticker.toUpperCase() : null;
