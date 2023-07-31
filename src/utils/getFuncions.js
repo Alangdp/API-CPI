@@ -124,16 +124,29 @@ export async function getBasicInfo(ticker = null) {
       '#company-section > div:nth-child(1) > div > div.top-info.info-3.sm.d-flex.justify-between.mb-3 > div:nth-child(7) > div > div > strong'
     ).text();
 
+    const price = $(
+      '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(2) > div > div:nth-child(1) > strong'
+    )
+      .text()
+      .replace(',', '.');
+    const dividiendPorcentInDecimal = Number(
+      $(
+        '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(5) > div > div:nth-child(1) > strong'
+      )
+        .text()
+        .replace('%', '')
+        .replace(',', '.') / 100
+    ).toFixed(2);
+
     const data = {
       name: $('title').text(),
       totalStocksInCirculation,
       freeFloat,
       netEquity,
       marketValue,
+      bazin: price / dividiendPorcentInDecimal,
     };
 
-    const values = [];
-    console.log();
     return data;
   } catch (error) {
     console.log(error);
