@@ -20,6 +20,23 @@ export function readJSONFromFile(filename) {
   }
 }
 
+function formateNumber(stringToFormat = null) {
+  if (!typeof stringToFormat === 'string') throw new Error('Invalid String');
+
+  stringToFormat = stringToFormat.replace(/[^\d,.]/g, '');
+  stringToFormat = stringToFormat.replace(',', '.');
+
+  try {
+    return Number(stringToFormat);
+  } catch (err) {
+    return stringToFormat;
+  }
+}
+
+const isAlpha = (character) => {
+  return /^[A-Z]$/i.test(character);
+};
+
 export function saveJSONToFile(jsonData, filename) {
   const absolutePath = path.resolve(__dirname, '..', 'json', filename);
   if (fs.existsSync(absolutePath)) {
@@ -78,12 +95,36 @@ export async function getAllTickers() {
     if (error.response.status === 404) {
       throw new Error('Invalid Ticker');
     }
-    console.log(error);
   }
 }
 
 export async function saveTickerJson() {
   saveJSONToFile(await getAllTickers(), 'tickers.json');
+}
+
+function breakArrayIntoGroups(arr, groupSize) {
+  const result = [];
+  for (let i = 0; i < arr.length; i += groupSize) {
+    const group = arr.slice(i, i + groupSize);
+    result.push(group);
+  }
+  return result;
+}
+
+function getDividendInfoFromHTML(cherrio = null) {
+  cherrio = cherrio ? cherrio : null;
+  const tableRows = cherrio(
+    '#earning-section > div.list > div > div:nth-child(2) > table > tbody'
+  );
+
+  tableRows.each((index, row) => {
+    const values = cherrio(row)
+      .find('td')
+      .map((index, element) => cherrio(element).text())
+      .toArray();
+
+    console.log(breakArrayIntoGroups(values, 4));
+  });
 }
 
 export async function getBasicInfo(ticker = null) {
@@ -103,17 +144,16 @@ export async function getBasicInfo(ticker = null) {
 
     const $ = cheerio.load(info.data);
 
+    const dividendInfo = getDividendInfoFromHTML($);
+
     const totalStocksInCirculation = $(
       'div[title="Total de papéis disponíveis para negociação"] div strong'
     ).text();
 
-    const freeFloat = Number(
+    const freeFloat = formateNumber(
       $(
         '#company-section > div:nth-child(1) > div > div.top-info.info-3.sm.d-flex.justify-between.mb-3 > div:nth-child(11) > div > div > strong'
-      )
-        .text()
-        .replace('%', '')
-        .replace(',', '.')
+      ).text()
     );
 
     const netEquity = $(
@@ -124,18 +164,18 @@ export async function getBasicInfo(ticker = null) {
       '#company-section > div:nth-child(1) > div > div.top-info.info-3.sm.d-flex.justify-between.mb-3 > div:nth-child(7) > div > div > strong'
     ).text();
 
-    const price = $(
-      '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(2) > div > div:nth-child(1) > strong'
-    )
-      .text()
-      .replace(',', '.');
-    const dividiendPorcentInDecimal = Number(
+    const price = formateNumber(
       $(
-        '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(5) > div > div:nth-child(1) > strong'
-      )
-        .text()
-        .replace('%', '')
-        .replace(',', '.') / 100
+        '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(2) > div > div:nth-child(1) > strong'
+      ).text()
+    );
+
+    const dividiendPorcentInDecimal = (
+      formateNumber(
+        $(
+          '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(5) > div > div:nth-child(1) > strong'
+        ).text()
+      ) / 100
     ).toFixed(2);
 
     const data = {
@@ -145,19 +185,19 @@ export async function getBasicInfo(ticker = null) {
       netEquity,
       marketValue,
       bazin: price / dividiendPorcentInDecimal,
+      dividiendPorcentInDecimal,
+      dividiendPorcent: dividiendPorcentInDecimal * 100,
     };
 
-    return data;
+    // return data;
   } catch (error) {
-    console.log(error);
     if (error.response && error.response.status === 404) {
       throw new Error('Invalid Ticker');
     }
+    console.log(error);
     throw new Error('Error in Request');
   }
 }
-
-console.log(await getBasicInfo('BBAS3'));
 
 export async function getPrice(ticker = null) {
   ticker = ticker ? ticker.toUpperCase() : null;
@@ -309,7 +349,6 @@ export async function getReports(ticker = null) {
 
     return data;
   } catch (error) {
-    console.log(error);
     return null;
   }
 }
@@ -383,8 +422,6 @@ export async function getActives(ticker = null) {
         info[lastTitle] = {};
       }
 
-      console.log(dataFormated.date);
-
       if (/^[1-4]T\d{4}$/.test(dataFormated.date)) {
         lastDate = dataFormated.date;
         info[lastTitle].lastDate = {
@@ -400,18 +437,14 @@ export async function getActives(ticker = null) {
       }
     }
 
-    console.log(cabeçalhoList);
-
     saveJSONToFile(info, 'TERSTE.json');
     return info;
   } catch (error) {
-    console.log(error);
     return null;
   }
 }
 
 // Parado desde 17/07/2023
-
 // Ultima coisa que foi feita
 // Objetivo e separar o retorna da tabela em trimestres com dados abaixo
 // Nome do titulo vem no indice 0 na variavel title geralmente
@@ -439,3 +472,11 @@ export async function getActives(ticker = null) {
       'Participação dos Não Controladores',
     ];
 */
+
+// console.log(await getActives('BBAS3'));
+// console.log(await getBasicInfo('BBAS3'));
+// console.log(await getPayout('BBAS3'));
+// console.log(await getPrice('BBAS3'));
+// console.log(await getReports('BBAS3'));
+
+console.log(await getBasicInfo('BBAS3'));
