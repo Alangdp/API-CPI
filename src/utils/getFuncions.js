@@ -525,5 +525,3 @@ export async function getActives(ticker = null) {
 // console.log(await getPayout('BBAS3'));
 // console.log(await getPrice('BBAS3'));
 // console.log(await getReports('BBAS3'));
-
-console.log(await getBasicInfo('BBAS3'));

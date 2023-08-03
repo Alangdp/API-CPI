@@ -1,5 +1,7 @@
 import Sequelize, { Model } from 'sequelize';
 
+import UserChart from './UserChart.js';
+
 // const types = {
 //   0: 'Compra de Ações',
 //   1: 'Venda de Ações',
@@ -16,6 +18,7 @@ const types = {
   3: 'Bond Sale',
   4: 'Mutual Fund Purchase',
   5: 'Mutual Fund Sale',
+  6: 'Dividend Payment',
 };
 
 const brokers = {
@@ -25,6 +28,7 @@ const brokers = {
   3: 'Rico Investimentos',
   4: 'Modalmais',
   5: 'BTG Pactual Digital',
+  6: 'Stock Payment',
 };
 
 export default class Transation extends Model {

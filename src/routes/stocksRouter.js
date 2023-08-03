@@ -11,6 +11,7 @@ router.get('/:ticker', adminMiddleware, stocksController.show);
 router.post('/userChart/', loginMiddleware, stocksController.storeChart);
 router.patch('/userChart/', adminMiddleware, stocksController.updateCharts);
 
-router.post('/chartHistory', adminMiddleware, stocksController.updateHistory);
+// stocksController.updateHistory
+router.post('/chartHistory', adminMiddleware, stocksController.teste);
 
 export default router;
