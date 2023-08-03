@@ -195,8 +195,6 @@ export async function getBasicInfo(ticker = null) {
 
     const $ = cheerio.load(info.data);
 
-    const dividendInfo = getDividendInfoFromHTML($);
-
     const totalStocksInCirculation = $(
       'div[title="Total de papéis disponíveis para negociação"] div strong'
     ).text();
@@ -230,6 +228,7 @@ export async function getBasicInfo(ticker = null) {
     ).toFixed(2);
 
     const data = {
+      dividendInfo: getDividendInfoFromHTML($),
       name: $('title').text(),
       totalStocksInCirculation,
       freeFloat,
@@ -237,7 +236,7 @@ export async function getBasicInfo(ticker = null) {
       marketValue,
     };
 
-    // return data;
+    return data;
   } catch (error) {
     if (error.response && error.response.status === 404) {
       throw new Error('Invalid Ticker');
