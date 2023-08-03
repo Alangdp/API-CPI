@@ -21,13 +21,17 @@ export function readJSONFromFile(filename) {
 }
 
 function formateNumber(stringToFormat = null) {
-  if (!typeof stringToFormat === 'string') throw new Error('Invalid String');
+  try {
+    if (typeof stringToFormat !== 'string') throw new Error('Invalid String');
+  } catch (err) {
+    stringToFormat = String(stringToFormat);
+  }
 
   stringToFormat = stringToFormat.replace(/[^\d,.]/g, '');
   stringToFormat = stringToFormat.replace(',', '.');
 
   try {
-    return Number(stringToFormat);
+    return Number(stringToFormat).toFixed(2);
   } catch (err) {
     return stringToFormat;
   }
@@ -40,7 +44,7 @@ const isAlpha = (character) => {
 export function saveJSONToFile(jsonData, filename) {
   const absolutePath = path.resolve(__dirname, '..', 'json', filename);
   if (fs.existsSync(absolutePath)) {
-    fs.unlinkSync(absolutePath); // Remover o arquivo caso já exista
+    fs.unlinkSync(absolutePath);
   }
 
   fs.writeFile(
@@ -112,6 +116,8 @@ function breakArrayIntoGroups(arr, groupSize) {
 }
 
 function getDividendInfoFromHTML(cherrio = null) {
+  const lastDividends = [];
+
   cherrio = cherrio ? cherrio : null;
   const tableRows = cherrio(
     '#earning-section > div.list > div > div:nth-child(2) > table > tbody'
@@ -123,8 +129,53 @@ function getDividendInfoFromHTML(cherrio = null) {
       .map((index, element) => cherrio(element).text())
       .toArray();
 
-    console.log(breakArrayIntoGroups(values, 4));
+    breakArrayIntoGroups(values, 4).map((dividendInfo) => {
+      lastDividends.push({
+        type: dividendInfo[0],
+        dataEx: dividendInfo[1],
+        dataCom: dividendInfo[2],
+        value: dividendInfo[3],
+      });
+    });
   });
+
+  const price = formateNumber(
+    cherrio(
+      '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(2) > div > div:nth-child(1) > strong'
+    ).text()
+  );
+
+  const dividiendPorcentInDecimal =
+    formateNumber(
+      cherrio(
+        '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(5) > div > div:nth-child(1) > strong'
+      ).text()
+    ) / 100;
+
+  const LPA = formateNumber(
+    cherrio(
+      '#indicators-section > div.indicator-today-container > div > div:nth-child(1) > div > div:nth-child(11) > div > div > strong'
+    ).text()
+  );
+
+  const VPA = formateNumber(
+    cherrio(
+      '#indicators-section > div.indicator-today-container > div > div:nth-child(1) > div > div:nth-child(9) > div > div > strong'
+    ).text()
+  );
+
+  return {
+    dividends: {
+      lastDividends: lastDividends,
+      dividiendPorcentInDecimal,
+      dividiendPorcent: dividiendPorcentInDecimal * 100,
+    },
+
+    bestPrice: {
+      bazin: formateNumber(price / dividiendPorcentInDecimal),
+      granham: (15 * LPA * VPA) ** 0.5,
+    },
+  };
 }
 
 export async function getBasicInfo(ticker = null) {
@@ -184,9 +235,6 @@ export async function getBasicInfo(ticker = null) {
       freeFloat,
       netEquity,
       marketValue,
-      bazin: price / dividiendPorcentInDecimal,
-      dividiendPorcentInDecimal,
-      dividiendPorcent: dividiendPorcentInDecimal * 100,
     };
 
     // return data;
