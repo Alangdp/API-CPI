@@ -9,6 +9,23 @@ import { getAllTickers, getBasicInfo } from '../utils/getFuncions.js';
 
 import { erroSequelizeFilter } from '../utils/controllersExtra.js';
 
+function formatNumber(stringToFormat = null) {
+  try {
+    if (typeof stringToFormat !== 'string') throw new Error('Invalid String');
+  } catch (err) {
+    stringToFormat = String(stringToFormat);
+  }
+
+  stringToFormat = stringToFormat.replace(/[^\d,.]/g, '');
+  stringToFormat = stringToFormat.replace(',', '.');
+
+  try {
+    return Number(stringToFormat).toFixed(2);
+  } catch (err) {
+    return stringToFormat;
+  }
+}
+
 async function getUniqueIds() {
   const usersCharts = await UserChart.findAll();
   let usersId = [];
@@ -164,8 +181,9 @@ export async function saveOrUpdatedHistory(userId = null) {
 
 export async function saveOrUpdatedAllHistory() {
   try {
-    usersId = await getUniqueIds();
+    const usersId = await getUniqueIds();
 
+    const updatedUser = [];
     /* eslint-disable */
     for (const userId of usersId) {
       updatedUser.push(await saveOrUpdatedHistory(userId));
@@ -269,43 +287,99 @@ async function getAllStocksInChart(userId) {
   return userChart;
 }
 
-export async function calculateDividend() {
+async function getAllTransactions(userId) {
+  const transations = await Transation.findAll({ where: { user_id: userId } });
+  return transations;
+}
+
+function getStocksOnTheDay(ticker, transactionsList, date) {
   try {
-    const tickerInfo = [];
+    let stockQuantity = 0;
+    const filteredTransactions = transactionsList.filter(
+      (transaction) => transaction.ticker === ticker
+    );
 
-    /*
-      for (const chart of UsersChart) {
-    const tickerInfo = TickerInfos.find((info) => info.ticker === chart.ticker);
+    filteredTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+    for (const transaction of filteredTransactions) {
+      const transactionDate = new Date(transaction.createdAt);
 
-    if (tickerInfo) {
-      await chart.update({ actualPrice: tickerInfo.actualPrice });
-    } else {
-      const newTickerInfo = await Stock.registerStock(chart.ticker);
-      await chart.update({ actualPrice: newTickerInfo.actualPrice });
-      TickerInfos.push(newTickerInfo);
+      if (transactionDate <= date && transaction.typeCode === 0) {
+        stockQuantity += transaction.quantity;
+      } else {
+        continue;
+      }
     }
 
-     */
+    return stockQuantity;
+  } catch (err) {
+    console.log(err);
+    return 0;
+  }
+}
 
-    const usersId = await getUniqueIds();
-    for (let user_id of usersId) {
+export async function calculateDividend() {
+  try {
+    const tickerDividends = [];
+    const tickerQuantities = [];
+    const userIds = [1];
+
+    for (let user_id of userIds) {
+      const transactions = await getAllTransactions(user_id);
       const userChart = await getAllStocksInChart(user_id);
+
       for (let stock of userChart) {
-        const tickerInfoBool = tickerInfo.find(
+        const tickerExists = tickerDividends.find(
           (info) => info.ticker === stock.ticker
         );
 
-        if (tickerInfoBool) {
-        } else {
+        if (!tickerExists) {
           const data = await getBasicInfo(stock.ticker);
           const lastDividends = data.dividendInfo.dividends.lastDividends;
-        }
 
-        const data = await getBasicInfo(stock.ticker);
-        console.log(data.dividendInfo.dividends.lastDividends, '\n');
+          for (let dividendInfo of lastDividends) {
+            let stocksOnDay = getStocksOnTheDay(
+              stock.ticker,
+              transactions,
+              new Date(dividendInfo.dataEx)
+            );
+
+            if (stocksOnDay > 0) {
+              const existingTickerQuantity = tickerQuantities.find(
+                (data) => data.ticker === stock.ticker
+              );
+
+              const dividendValue =
+                stocksOnDay * formatNumber(dividendInfo.value);
+
+              if (!existingTickerQuantity) {
+                tickerQuantities.push({ ticker: stock.ticker, dividendValue });
+              } else {
+                existingTickerQuantity.dividendValue += dividendValue;
+              }
+            }
+
+            if (stocksOnDay > 0) {
+              const existingTickerQuantity = tickerQuantities.find(
+                (data) => data.ticker === stock.ticker
+              );
+
+              const dividendValue =
+                stocksOnDay * formatNumber(dividendInfo.value);
+
+              if (!existingTickerQuantity) {
+                tickerQuantities.push({ ticker: stock.ticker, dividendValue });
+              } else {
+                existingTickerQuantity.dividendValue += dividendValue;
+              }
+            }
+          }
+
+          tickerDividends.push({ ticker: stock.ticker, lastDividends });
+        }
       }
     }
-    return usersId;
+
+    return tickerQuantities;
   } catch (err) {
     console.log(err);
     return err;
