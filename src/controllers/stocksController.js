@@ -7,6 +7,7 @@ import {
   saveOrUpdatedAllHistory,
   calculateTotalDividend,
   calculateDividend,
+  DividendHistory,
 } from '../models/ModelFunctions.js';
 
 // eslint-disable-next-line
@@ -38,9 +39,11 @@ class StockController {
 
   async teste(req, res) {
     try {
-      const data = await calculateDividend(req.body);
+      // const data = await calculateDividend(req.body);
+      const data = await DividendHistory(1);
       return res.status(200).json({ data });
     } catch (err) {
+      console.log(err, 123);
       const erroList = erroSequelizeFilter(err);
       return res.status(400).json(erroList);
     }

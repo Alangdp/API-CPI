@@ -138,64 +138,6 @@ export async function registerItem(data) {
   return { TransationData, userData };
 }
 
-// HISTORY
-
-export async function saveOrUpdatedHistory(userId = null) {
-  if (!userId) throw new Error('Invalid ID');
-
-  const stockTickers = await getAllTickers();
-  const userChart = await UserChart.findAll({ where: { user_id: userId } });
-
-  const historyData = {
-    user_id: userId,
-    date: new Date(),
-    stockValues: 0,
-    fiiValues: 0,
-    titlesValues: 0,
-  };
-
-  userChart.forEach((stock) => {
-    if (stockTickers.includes(stock.ticker)) {
-      historyData.stockValues += stock.amountPrice;
-    }
-  });
-
-  const dayHistory = await HistoryChart.findOne({
-    where: { date: literal(`DATE(date) = DATE(NOW())`), user_id: userId },
-  });
-
-  let dateHistory = null;
-
-  if (!dayHistory) {
-    dateHistory = await HistoryChart.create(historyData);
-  } else {
-    await dayHistory.update(historyData, {
-      where: { date: literal(`DATE(date) = DATE(NOW())`), user_id: userId },
-    });
-  }
-
-  if (!dateHistory) dateHistory = dayHistory;
-
-  return dateHistory;
-}
-
-export async function saveOrUpdatedAllHistory() {
-  try {
-    const usersId = await getUniqueIds();
-
-    const updatedUser = [];
-    /* eslint-disable */
-    for (const userId of usersId) {
-      updatedUser.push(await saveOrUpdatedHistory(userId));
-    }
-    /* eslint-enable */
-
-    return updatedUser;
-  } catch (err) {
-    return erroSequelizeFilter(err);
-  }
-}
-
 // STOCK
 
 /* eslint-disable */
@@ -317,11 +259,11 @@ function getStocksOnTheDay(ticker, transactionsList, date) {
   }
 }
 
-export async function calculateDividend() {
+export async function calculateDividend(userId = null) {
   try {
     const tickerDividends = [];
     const tickerQuantities = [];
-    const userIds = [1];
+    const userIds = [userId];
 
     for (let user_id of userIds) {
       const transactions = await getAllTransactions(user_id);
@@ -352,22 +294,11 @@ export async function calculateDividend() {
                 stocksOnDay * formatNumber(dividendInfo.value);
 
               if (!existingTickerQuantity) {
-                tickerQuantities.push({ ticker: stock.ticker, dividendValue });
-              } else {
-                existingTickerQuantity.dividendValue += dividendValue;
-              }
-            }
-
-            if (stocksOnDay > 0) {
-              const existingTickerQuantity = tickerQuantities.find(
-                (data) => data.ticker === stock.ticker
-              );
-
-              const dividendValue =
-                stocksOnDay * formatNumber(dividendInfo.value);
-
-              if (!existingTickerQuantity) {
-                tickerQuantities.push({ ticker: stock.ticker, dividendValue });
+                tickerQuantities.push({
+                  ticker: stock.ticker,
+                  dividendValue,
+                  dataCom: dividendInfo.dataCom,
+                });
               } else {
                 existingTickerQuantity.dividendValue += dividendValue;
               }
@@ -383,5 +314,75 @@ export async function calculateDividend() {
   } catch (err) {
     console.log(err);
     return err;
+  }
+}
+
+// HISTORY
+
+export async function DividendHistory(userId = null) {
+  if (!userId) throw new Error('Invalid ID');
+
+  const dividendUser = await calculateDividend(userId);
+
+  for (let dividendPayment of dividendUser) {
+    console.log(dividendPayment);
+  }
+
+  return dividendUser;
+}
+
+export async function saveOrUpdatedHistory(userId = null) {
+  if (!userId) throw new Error('Invalid ID');
+
+  const stockTickers = await getAllTickers();
+  const userChart = await UserChart.findAll({ where: { user_id: userId } });
+
+  const historyData = {
+    user_id: userId,
+    date: new Date(),
+    stockValues: 0,
+    fiiValues: 0,
+    titlesValues: 0,
+  };
+
+  userChart.forEach((stock) => {
+    if (stockTickers.includes(stock.ticker)) {
+      historyData.stockValues += stock.amountPrice;
+    }
+  });
+
+  const dayHistory = await HistoryChart.findOne({
+    where: { date: literal(`DATE(date) = DATE(NOW())`), user_id: userId },
+  });
+
+  let dateHistory = null;
+
+  if (!dayHistory) {
+    dateHistory = await HistoryChart.create(historyData);
+  } else {
+    await dayHistory.update(historyData, {
+      where: { date: literal(`DATE(date) = DATE(NOW())`), user_id: userId },
+    });
+  }
+
+  if (!dateHistory) dateHistory = dayHistory;
+
+  return dateHistory;
+}
+
+export async function saveOrUpdatedAllHistory() {
+  try {
+    const usersId = await getUniqueIds();
+
+    const updatedUser = [];
+    /* eslint-disable */
+    for (const userId of usersId) {
+      updatedUser.push(await saveOrUpdatedHistory(userId));
+    }
+    /* eslint-enable */
+
+    return updatedUser;
+  } catch (err) {
+    return erroSequelizeFilter(err);
   }
 }
