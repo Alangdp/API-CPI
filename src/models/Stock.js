@@ -11,6 +11,28 @@ import {
 
 import { erroSequelizeFilter } from '../utils/controllersExtra.js';
 
+export async function updateOrCreateStock(data) {
+  try {
+    const existingStock = await Stock.findOne({
+      where: { ticker: data.ticker },
+    });
+
+    if (existingStock) {
+      console.log();
+      await existingStock.update({
+        company_name: data.company_name,
+        actualPrice: data.actualPrice,
+      });
+
+      return existingStock.dataValues;
+    }
+    return await Stock.create(data);
+  } catch (error) {
+    return erroSequelizeFilter(error);
+    console.error('Erro ao atualizar/criar registro:', error);
+  }
+}
+
 export default class Stock extends Model {
   static init(sequelize) {
     super.init(
@@ -59,7 +81,7 @@ export default class Stock extends Model {
       const data = {
         ticker,
         company_name: basicInfo.name,
-        actualPrice: infoPrice.lastPrice.price,
+        actualPrice: infoPrice.lastPrice.price || infoPrice.lastPrice,
       };
 
       // eslint-disable-next-line

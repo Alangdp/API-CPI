@@ -15,6 +15,7 @@ export function erroSequelizeFilter(errorType) {
 
     return { msg: errorsMessages };
   } catch (error) {
-    return { msg: error.message };
+    console.log(error);
+    return { msg: error.message, err: error.Error };
   }
 }

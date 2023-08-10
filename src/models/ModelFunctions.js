@@ -116,6 +116,7 @@ export async function registerItem(data) {
     price: data.price,
     quantity: data.Quantity || IsNull('Invalid Quantity'),
     brokerCode: data.brokerCode,
+    transationDate: data.transationDate,
   };
 
   const TransationData = await Transation.create(transationData);
@@ -243,7 +244,8 @@ function getStocksOnTheDay(ticker, transactionsList, date) {
 
     filteredTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
     for (const transaction of filteredTransactions) {
-      const transactionDate = new Date(transaction.createdAt);
+      const transactionDate =
+        new Date(transaction.transationDate) || transaction.createdAt;
 
       if (transactionDate <= date && transaction.typeCode === 0) {
         stockQuantity += transaction.quantity;

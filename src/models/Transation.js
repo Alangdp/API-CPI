@@ -90,6 +90,12 @@ export default class Transation extends Model {
           allowNull: false,
           field: 'typeCode',
         },
+
+        transationDate: {
+          type: Sequelize.VIRTUAL,
+          defaultValue: new Date(),
+          allowNull: false,
+        },
       },
 
       { sequelize }
