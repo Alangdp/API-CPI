@@ -40,7 +40,7 @@ class StockController {
   async teste(req, res) {
     try {
       // const data = await calculateDividend(req.body);
-      const data = await calculateDividend(1);
+      const data = await DividendHistory(req.userId);
       return res.status(200).json({ data });
     } catch (err) {
       const erroList = erroSequelizeFilter(err);

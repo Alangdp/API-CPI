@@ -1,4 +1,4 @@
-import { literal } from 'Sequelize';
+import { Op, literal } from 'Sequelize';
 import User from './User.js';
 import Stock from './Stock.js';
 import UserChart from './UserChart.js';
@@ -10,6 +10,7 @@ import { getAllTickers, getBasicInfo } from '../utils/getFuncions.js';
 import { erroSequelizeFilter } from '../utils/controllersExtra.js';
 
 function formatNumber(stringToFormat = null) {
+  /* eslint-disable */
   try {
     if (typeof stringToFormat !== 'string') throw new Error('Invalid String');
   } catch (err) {
@@ -24,6 +25,7 @@ function formatNumber(stringToFormat = null) {
   } catch (err) {
     return stringToFormat;
   }
+  /* eslint-enable */
 }
 
 async function getUniqueIds() {
@@ -244,9 +246,7 @@ function getStocksOnTheDay(ticker, transactionsList, date) {
 
     filteredTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
     for (const transaction of filteredTransactions) {
-      const transactionDate =
-        new Date(transaction.transationDate) || transaction.createdAt;
-
+      const transactionDate = new Date(transaction.transationDate);
       if (transactionDate <= date && transaction.typeCode === 0) {
         stockQuantity += transaction.quantity;
       } else {
@@ -281,10 +281,14 @@ export async function calculateDividend(userId = null) {
           const lastDividends = data.dividendInfo.dividends.lastDividends;
 
           for (let dividendInfo of lastDividends) {
+            const dataExParts = dividendInfo.dataEx.split('/');
+            const dataEx = new Date(
+              `${dataExParts[2]}-${dataExParts[1]}-${dataExParts[0]}`
+            );
             let stocksOnDay = getStocksOnTheDay(
               stock.ticker,
               transactions,
-              new Date(dividendInfo.dataEx)
+              dataEx
             );
 
             if (stocksOnDay > 0) {
@@ -300,9 +304,12 @@ export async function calculateDividend(userId = null) {
                   ticker: stock.ticker,
                   dividendValue,
                   dataCom: dividendInfo.dataCom,
+                  dataEx: dividendInfo.dataEx,
+                  stocksQuantity: stocksOnDay,
                 });
               } else {
                 existingTickerQuantity.dividendValue += dividendValue;
+                existingTickerQuantity.stocksQuantity += stocksOnDay;
               }
             }
           }
@@ -321,13 +328,63 @@ export async function calculateDividend(userId = null) {
 
 // HISTORY
 
+const findTransactionWithCriteria = async (
+  ticker,
+  transationDate,
+  typeCode
+) => {
+  try {
+    const transaction = await Transation.findOne({
+      where: {
+        transationDate: {
+          [Op.lte]: transationDate,
+        },
+        ticker: ticker,
+        typeCode: typeCode,
+      },
+    });
+
+    return transaction;
+  } catch (error) {
+    console.error('Error:', error);
+    throw error;
+  }
+};
+
 export async function DividendHistory(userId = null) {
   if (!userId) throw new Error('Invalid ID');
 
   const dividendUser = await calculateDividend(userId);
+  const userTransations = await getAllTransactions(userId);
 
-  for (let dividendPayment of dividendUser) {
-    console.log(dividendPayment);
+  for (let dividend of dividendUser) {
+    const dataExParts = dividend.dataEx.split('/');
+    const dataEx = new Date(
+      `${dataExParts[2]}-${dataExParts[1]}-${dataExParts[0]}`
+    );
+
+    const existDividendPayment = await findTransactionWithCriteria(
+      dividend.ticker,
+      dataEx,
+      6
+    );
+
+    if (!existDividendPayment) {
+      console.log('NAO EXISTE DEVE CRIAR');
+      Transation.create({
+        user_id: userId,
+        ticker: dividend.ticker,
+        price: dividend.dividendValue / dividend.stocksQuantity,
+        quantity: dividend.quantity,
+        totalValue: dividend.dividendValue,
+        brokerCode: 7,
+        typeCode: 6,
+        transationDate: dividend.dataCom,
+      });
+    } else {
+      console.log('JA EXISTE');
+    }
+    console.log();
   }
 
   return dividendUser;

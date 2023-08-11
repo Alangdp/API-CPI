@@ -13,6 +13,11 @@ router.patch('/userChart/', adminMiddleware, stocksController.updateCharts);
 
 // stocksController.updateHistory
 router.post('/updateChart', adminMiddleware, stocksController.updateHistory);
-router.post('/updateDividend', adminMiddleware, stocksController.teste);
+router.post(
+  '/updateDividend',
+  adminMiddleware,
+  loginMiddleware,
+  stocksController.teste
+);
 
 export default router;

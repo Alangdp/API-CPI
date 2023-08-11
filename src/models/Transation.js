@@ -29,6 +29,7 @@ const brokers = {
   4: 'Modalmais',
   5: 'BTG Pactual Digital',
   6: 'Stock Payment',
+  7: 'System',
 };
 
 export default class Transation extends Model {
@@ -92,33 +93,35 @@ export default class Transation extends Model {
         },
 
         transationDate: {
-          type: Sequelize.VIRTUAL,
+          type: Sequelize.DATE,
           defaultValue: new Date(),
           allowNull: false,
+          field: 'transationDate',
         },
       },
 
       { sequelize }
     );
 
-    this.addHook('beforeSave', function beforeSave(Transation) {
-      if (Transation.quantity && Transation.price) {
-        const totalValue = Transation.quantity * Transation.price;
+    this.addHook('beforeSave', function beforeSave(TransationBeforeSave) {
+      if (TransationBeforeSave.quantity && TransationBeforeSave.price) {
+        const totalValue =
+          TransationBeforeSave.quantity * TransationBeforeSave.price;
 
         /* eslint-disable */
-        Transation.type = types[Transation.typeCode];
-        if (!Transation.type) {
+        TransationBeforeSave.type = types[TransationBeforeSave.typeCode];
+        if (!TransationBeforeSave.type) {
           throw new Error('Invalid type code');
         }
 
-        Transation.broker = brokers[Transation.brokerCode];
-        if (!Transation.broker) {
+        TransationBeforeSave.broker = brokers[TransationBeforeSave.brokerCode];
+        if (!TransationBeforeSave.broker) {
           throw new Error('Invalid broker code');
         }
 
-        Transation.totalValue = totalValue;
-        Transation.type = types[Transation.typeCode];
-        Transation.broker = brokers[Transation.brokerCode];
+        TransationBeforeSave.totalValue = totalValue;
+        TransationBeforeSave.type = types[TransationBeforeSave.typeCode];
+        TransationBeforeSave.broker = brokers[TransationBeforeSave.brokerCode];
         /* eslint-enable */
       }
 
