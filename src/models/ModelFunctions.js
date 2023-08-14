@@ -5,105 +5,110 @@ import UserChart from './UserChart.js';
 import Transation from './Transation.js';
 import HistoryChart from './HistoryChart.js';
 
-import { getAllTickers, getBasicInfo } from '../utils/getFuncions.js';
+import {
+  getAllTickers,
+  getBasicInfo,
+  getPrice,
+  readJSONFromFile,
+} from '../utils/getFuncions.js';
 
 import { erroSequelizeFilter } from '../utils/controllersExtra.js';
 
+// GENERAL FUNCTIONS
+
+function makeError(message = 'Error') {
+  throw new Error(message);
+}
+
 function formatNumber(stringToFormat = null, comma = 2) {
-  /* eslint-disable */
   try {
+    let strintFormated = stringToFormat;
     if (typeof stringToFormat !== 'string') throw new Error('Invalid String');
-  } catch (err) {
-    stringToFormat = String(stringToFormat);
-  }
+    strintFormated = stringToFormat.replace(/[^\d,.]/g, '').replace(',', '.');
 
-  stringToFormat = stringToFormat.replace(/[^\d,.]/g, '');
-  stringToFormat = stringToFormat.replace(',', '.');
-
-  try {
-    return Number(stringToFormat).toFixed(comma);
+    return Number(strintFormated).toFixed(comma);
   } catch (err) {
     return stringToFormat;
   }
-  /* eslint-enable */
+}
+
+async function getAllStocksInChart(userId) {
+  const userChart = await UserChart.findAll({ where: { user_id: userId } });
+  return userChart;
+}
+
+async function getAllTransactions(userId) {
+  const transations = await Transation.findAll({ where: { user_id: userId } });
+  return transations;
 }
 
 async function getUniqueIds() {
   const usersCharts = await UserChart.findAll();
-  let usersId = [];
+  const usersId = [];
   usersCharts.forEach((userChart) => {
     usersId.push(userChart.user_id);
   });
 
-  usersId = Array.from(new Set(usersId));
-  return usersId;
+  return Array.from(new Set(usersId));
 }
 
-async function medianPrice(id, ticker) {
-  const UserTransations = await Transation.findAll({
-    where: { user_id: id, ticker },
+// Chart
+
+async function medianPrice(userID, ticker) {
+  const userTransations = await Transation.findAll({
+    where: { user_id: userID, ticker },
   });
 
   let stockQuantity = 0;
   let stockValue = 0;
-  let median = 0;
 
-  UserTransations.forEach((transationDataInfo) => {
+  const validTransactions = userTransations.filter(
+    (transactionDataInfo) => transactionDataInfo.typeCode === 0
+  );
+
+  if (validTransactions.length === 0) {
+    return { median: 0, quantity: 0 };
+  }
+
+  validTransactions.forEach((transationDataInfo) => {
     if (transationDataInfo.typeCode === 0) {
       stockValue += transationDataInfo.totalValue;
       stockQuantity += transationDataInfo.quantity;
     }
-
-    median = stockValue / stockQuantity;
   });
 
-  return { median, quantity: stockQuantity };
+  return { median: stockValue / stockQuantity, quantity: stockQuantity };
 }
 
 export async function updateUserChartData() {
-  const UsersChart = await UserChart.findAll();
-  const TickerInfos = [];
+  const usersChart = await UserChart.findAll();
+  const tickerInfos = [];
 
-  /* eslint-disable */
-  for (const chart of UsersChart) {
-    const tickerInfo = TickerInfos.find((info) => info.ticker === chart.ticker);
+  const updatePromises = usersChart.map(async (chart) => {
+    const tickerInfo = tickerInfos.find((info) => info.ticker === chart.ticker);
 
     if (tickerInfo) {
-      await chart.update({ actualPrice: tickerInfo.actualPrice });
-    } else {
-      const newTickerInfo = await Stock.registerStock(chart.ticker);
-      await chart.update({ actualPrice: newTickerInfo.actualPrice });
-      TickerInfos.push(newTickerInfo);
+      return chart.update({
+        actualPrice: formatNumber(tickerInfo.actualPrice),
+      });
     }
-    /* eslint-enable */
-  }
-
-  return UsersChart;
-}
-
-async function userAlreadyOwnsStocks(userChartData) {
-  const userData = await UserChart.findOne({
-    where: { user_id: userChartData.user_id, ticker: userChartData.ticker },
+    const newTickerInfo = await Stock.registerStock(chart.ticker);
+    tickerInfos.push(newTickerInfo);
+    return chart.update({ actualPrice: newTickerInfo.actualPrice });
   });
 
-  return userData;
-}
+  await Promise.all(updatePromises);
 
-function IsNull(message = 'Error') {
-  throw new Error(message);
+  return usersChart;
 }
 
 export async function registerItem(data) {
-  let TickerInfo;
+  let tickerInfo;
 
-  try {
-    TickerInfo = await Stock.findOne({ where: { ticker: data.ticker } });
-    if (TickerInfo === null) throw new Error('Not in DB');
-  } catch (err) {
-    TickerInfo = await Stock.registerStock(data.ticker);
-  }
+  tickerInfo = await Stock.findOne({ where: { ticker: data.ticker } });
+  if (!tickerInfo) tickerInfo = await Stock.registerStock(data.ticker);
 
-  const lastUpdated = new Date(TickerInfo.updatedAt || '2000-01-01');
+  const lastUpdated = new Date(tickerInfo.updatedAt || '2000-01-01');
   const actualDate = new Date();
   const timeDiferenceInMinutes = (actualDate - lastUpdated) / (1000 * 60);
 
@@ -116,7 +121,7 @@ export async function registerItem(data) {
     ticker: data.ticker,
     typeCode: data.typeCode,
     price: data.price,
-    quantity: data.Quantity || IsNull('Invalid Quantity'),
+    quantity: data.Quantity || makeError('Invalid Quantity'),
     brokerCode: data.brokerCode,
     transationDate: data.transationDate,
   };
@@ -130,10 +135,12 @@ export async function registerItem(data) {
     Quantity: mediaPrice.quantity,
     buyPrice: data.price,
     medianPrice: mediaPrice.median,
-    actualPrice: TickerInfo.actualPrice,
+    actualPrice: tickerInfo.actualPrice,
   };
 
-  let userData = await userAlreadyOwnsStocks(userChartData);
+  let userData = await UserChart.findOne({
+    where: { user_id: userChartData.user_id, ticker: userChartData.ticker },
+  });
 
   if (userData) userData = await userData.update(userChartData);
   else userData = await UserChart.create(userChartData);
@@ -142,43 +149,6 @@ export async function registerItem(data) {
 }
 
 // STOCK
-
-/* eslint-disable */
-export async function createMultipleStockData(getWithApi = true) {
-  try {
-    const allDatas = [];
-    if (getWithApi) {
-      const tickers = await getAllTickers();
-
-      for (const ticker of tickers) {
-        try {
-          const infoPrice = await getPrice(ticker);
-          const basicInfo = await getBasicInfo(ticker);
-
-          const data = {
-            ticker,
-            company_name: basicInfo.name,
-            actualPrice: infoPrice.lastPrice.price,
-          };
-
-          allDatas.push(data);
-        } catch (err) {
-          continue;
-        }
-      }
-    } else {
-      allDatas.push(...readJSONFromFile('stockDatas.json'));
-    }
-
-    for (const data of allDatas) {
-      await updateOrCreateStock(data);
-    }
-
-    console.log('Registros criados/atualizados com sucesso!');
-  } catch (error) {
-    console.error('Erro ao criar/atualizar registros:', error);
-  }
-}
 
 export async function updateOrCreateStock(data) {
   try {
@@ -194,12 +164,50 @@ export async function updateOrCreateStock(data) {
       });
 
       return existingStock.dataValues;
-    } else {
-      return await Stock.create(data);
     }
+    return await Stock.create(data);
   } catch (error) {
     return erroSequelizeFilter(error);
     console.error('Erro ao atualizar/criar registro:', error);
+  }
+}
+
+export async function createMultipleStockData(getWithApi = true) {
+  try {
+    const allDatas = [];
+    if (getWithApi) {
+      const tickers = await getAllTickers();
+      const pricePromises = tickers.map(async (ticker) => {
+        try {
+          const [infoPrice, basicInfo] = await Promise.all([
+            getPrice(ticker),
+            getBasicInfo(ticker),
+          ]);
+
+          const data = {
+            ticker,
+            company_name: basicInfo.name,
+            actualPrice: infoPrice.lastPrice.price,
+          };
+
+          allDatas.push(data);
+        } catch (err) {
+          // Nothing
+        }
+      });
+
+      await Promise.all(pricePromises);
+    } else {
+      allDatas.push(...readJSONFromFile('stockDatas.json'));
+    }
+
+    const updatePromises = allDatas.map(async (data) => {
+      await updateOrCreateStock(data);
+    });
+
+    await Promise.all(updatePromises);
+  } catch (error) {
+    // Nothing}
   }
 }
 
@@ -214,7 +222,7 @@ export async function calculateTotalDividend(data) {
     });
 
     let dividendValue = 0;
-    const dividendTransaction = transations.forEach((transation) => {
+    transations.forEach((transation) => {
       if (transation.typeCode === 6) {
         dividendValue += transation.totalValue;
       }
@@ -222,20 +230,11 @@ export async function calculateTotalDividend(data) {
 
     return dividendValue;
   } catch (err) {
-    console.log(err);
-    return err;
+    return 0;
   }
 }
 
-async function getAllStocksInChart(userId) {
-  const userChart = await UserChart.findAll({ where: { user_id: userId } });
-  return userChart;
-}
-
-async function getAllTransactions(userId) {
-  const transations = await Transation.findAll({ where: { user_id: userId } });
-  return transations;
-}
+/* eslint-disable */
 
 function getStocksOnTheDay(ticker, transactionsList, date) {
   try {
@@ -279,7 +278,7 @@ export async function calculateDividend(userId = null) {
 
         if (!tickerExists) {
           const data = await getBasicInfo(stock.ticker);
-          const lastDividends = data.dividendInfo.dividends.lastDividends;
+          const { lastDividends } = data.dividendInfo.dividends;
 
           for (const dividendInfo of lastDividends) {
             const dataExParts = dividendInfo.dataEx.split('/');
@@ -339,8 +338,8 @@ const findTransactionWithCriteria = async (
         transationDate: {
           [Op.lte]: transationDate,
         },
-        ticker: ticker,
-        typeCode: typeCode,
+        ticker,
+        typeCode,
       },
     });
 
@@ -351,9 +350,8 @@ const findTransactionWithCriteria = async (
         }
       }
       return null;
-    } else {
-      return null;
     }
+    return null;
   } catch (error) {
     throw error;
   }
@@ -364,7 +362,7 @@ export async function DividendHistory(userId = null) {
 
   const dividendUser = await calculateDividend(userId);
 
-  for (let dividend of dividendUser) {
+  for (const dividend of dividendUser) {
     const dataExParts = dividend.dataEx.split('/');
     const dataEx = new Date(
       `${dataExParts[2]}-${dataExParts[1]}-${dataExParts[0]}`
