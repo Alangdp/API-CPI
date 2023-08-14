@@ -115,6 +115,41 @@ function breakArrayIntoGroups(arr, groupSize) {
   return result;
 }
 
+export async function getStockrebuy(cherrio) {
+  const rebuyInfo = [];
+
+  const tableRows = cherrio(
+    '#movements-section > div > div.buyback.card > div.card-body'
+  );
+
+  tableRows.each((index, row) => {
+    const values = cherrio(row).each((index, line) => {
+      const infos = cherrio.load(line);
+      const status = infos(
+        '.w-100.w-lg-50.d-flex.flex-wrap.justify-around.align-items-center'
+      );
+
+      const types = infos(
+        'w-100.w-lg-50.mt-2.mb-3.mb-sm-2.d-xs-flex.justify-center.align-items-center'
+      );
+
+      const statusTextArray = status
+        .map((index, element) => {
+          return infos(element).text();
+        })
+        .get();
+
+      const processedData = statusTextArray.map((item) => {
+        const lines = item.trim().split('\n');
+        const status = lines[0];
+        const approvedDate = lines[5].replace('APROVADO EM\n', '');
+        const startDate = lines[9].replace('DATA DE INÍCIO\n', '');
+        const endDate = lines[13].replace('DATA DE FIM\n', '');
+      });
+    });
+  });
+}
+
 function getDividendInfoFromHTML(cherrio = null) {
   const lastDividends = [];
 
@@ -229,6 +264,7 @@ export async function getBasicInfo(ticker = null) {
 
     const data = {
       dividendInfo: getDividendInfoFromHTML($),
+      rebuyStock: getStockrebuy($),
       name: $('title').text(),
       totalStocksInCirculation,
       freeFloat,
@@ -525,3 +561,5 @@ export async function getActives(ticker = null) {
 // console.log(await getPayout('BBAS3'));
 // console.log(await getPrice('BBAS3'));
 // console.log(await getReports('BBAS3'));
+
+getBasicInfo('RANI3');
