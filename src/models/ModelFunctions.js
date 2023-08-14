@@ -9,7 +9,7 @@ import { getAllTickers, getBasicInfo } from '../utils/getFuncions.js';
 
 import { erroSequelizeFilter } from '../utils/controllersExtra.js';
 
-function formatNumber(stringToFormat = null) {
+function formatNumber(stringToFormat = null, comma = 2) {
   /* eslint-disable */
   try {
     if (typeof stringToFormat !== 'string') throw new Error('Invalid String');
@@ -21,7 +21,7 @@ function formatNumber(stringToFormat = null) {
   stringToFormat = stringToFormat.replace(',', '.');
 
   try {
-    return Number(stringToFormat).toFixed(2);
+    return Number(stringToFormat).toFixed(comma);
   } catch (err) {
     return stringToFormat;
   }
@@ -254,6 +254,7 @@ function getStocksOnTheDay(ticker, transactionsList, date) {
       }
     }
 
+    console.log(stockQuantity, date);
     return stockQuantity;
   } catch (err) {
     console.log(err);
@@ -267,11 +268,11 @@ export async function calculateDividend(userId = null) {
     const tickerQuantities = [];
     const userIds = [userId];
 
-    for (let user_id of userIds) {
+    for (const user_id of userIds) {
       const transactions = await getAllTransactions(user_id);
       const userChart = await getAllStocksInChart(user_id);
 
-      for (let stock of userChart) {
+      for (const stock of userChart) {
         const tickerExists = tickerDividends.find(
           (info) => info.ticker === stock.ticker
         );
@@ -280,12 +281,13 @@ export async function calculateDividend(userId = null) {
           const data = await getBasicInfo(stock.ticker);
           const lastDividends = data.dividendInfo.dividends.lastDividends;
 
-          for (let dividendInfo of lastDividends) {
+          for (const dividendInfo of lastDividends) {
             const dataExParts = dividendInfo.dataEx.split('/');
             const dataEx = new Date(
               `${dataExParts[2]}-${dataExParts[1]}-${dataExParts[0]}`
             );
-            let stocksOnDay = getStocksOnTheDay(
+
+            const stocksOnDay = getStocksOnTheDay(
               stock.ticker,
               transactions,
               dataEx
@@ -297,32 +299,26 @@ export async function calculateDividend(userId = null) {
               );
 
               const dividendValue =
-                stocksOnDay * formatNumber(dividendInfo.value);
+                stocksOnDay * formatNumber(dividendInfo.value, 6);
 
-              if (!existingTickerQuantity) {
-                tickerQuantities.push({
-                  ticker: stock.ticker,
-                  dividendValue,
-                  dataCom: dividendInfo.dataCom,
-                  dataEx: dividendInfo.dataEx,
-                  stocksQuantity: stocksOnDay,
-                });
-              } else {
-                existingTickerQuantity.dividendValue += dividendValue;
-                existingTickerQuantity.stocksQuantity += stocksOnDay;
-              }
+              tickerQuantities.push({
+                ticker: stock.ticker,
+                dividendValue,
+                dataCom: dividendInfo.dataCom,
+                dataEx: dividendInfo.dataEx,
+                stocksQuantity: stocksOnDay,
+                unitaryValue: formatNumber(dividendInfo.value, 6),
+              });
             }
           }
-
-          tickerDividends.push({ ticker: stock.ticker, lastDividends });
         }
       }
     }
 
     return tickerQuantities;
-  } catch (err) {
-    console.log(err);
-    return err;
+  } catch (error) {
+    console.log(error);
+    return error;
   }
 }
 
@@ -331,11 +327,15 @@ export async function calculateDividend(userId = null) {
 const findTransactionWithCriteria = async (
   ticker,
   transationDate,
-  typeCode
+  typeCode,
+  price,
+  user_id
 ) => {
   try {
-    const transaction = await Transation.findOne({
+    price = Number(price);
+    const transactions = await Transation.findAll({
       where: {
+        user_id,
         transationDate: {
           [Op.lte]: transationDate,
         },
@@ -344,9 +344,17 @@ const findTransactionWithCriteria = async (
       },
     });
 
-    return transaction;
+    if (transactions.length > 0) {
+      for (let i = 0; i < transactions.length; i++) {
+        if (transactions[i].price === price) {
+          return transactions[i];
+        }
+      }
+      return null;
+    } else {
+      return null;
+    }
   } catch (error) {
-    console.error('Error:', error);
     throw error;
   }
 };
@@ -355,7 +363,6 @@ export async function DividendHistory(userId = null) {
   if (!userId) throw new Error('Invalid ID');
 
   const dividendUser = await calculateDividend(userId);
-  const userTransations = await getAllTransactions(userId);
 
   for (let dividend of dividendUser) {
     const dataExParts = dividend.dataEx.split('/');
@@ -366,25 +373,34 @@ export async function DividendHistory(userId = null) {
     const existDividendPayment = await findTransactionWithCriteria(
       dividend.ticker,
       dataEx,
-      6
+      6,
+      formatNumber(dividend.unitaryValue, 6),
+      userId
     );
 
     if (!existDividendPayment) {
-      console.log('NAO EXISTE DEVE CRIAR');
       Transation.create({
         user_id: userId,
         ticker: dividend.ticker,
-        price: dividend.dividendValue / dividend.stocksQuantity,
-        quantity: dividend.quantity,
+        price: dividend.unitaryValue,
+        quantity: dividend.stocksQuantity,
         totalValue: dividend.dividendValue,
         brokerCode: 7,
         typeCode: 6,
-        transationDate: dividend.dataCom,
+        transationDate: dataEx,
       });
     } else {
-      console.log('JA EXISTE');
+      await existDividendPayment.update(
+        {
+          price: dividend.unitaryValue,
+          quantity: dividend.stocksQuantity,
+          totalValue: dividend.dividendValue,
+          brokerCode: 7,
+          typeCode: 6,
+        },
+        { where: { id: existDividendPayment.id } }
+      );
     }
-    console.log();
   }
 
   return dividendUser;

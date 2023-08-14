@@ -9,6 +9,7 @@ export function erroSequelizeFilter(errorType) {
     return { msg: 'SequelizeConnectionRefusedError' };
 
   try {
+    console.log(errorType);
     errorType.errors.forEach((error) => {
       errorsMessages.push(error.message);
     });
