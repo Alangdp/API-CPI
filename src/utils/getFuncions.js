@@ -115,39 +115,62 @@ function breakArrayIntoGroups(arr, groupSize) {
   return result;
 }
 
-export async function getStockrebuy(cherrio) {
+export async function getStockrebuy(cherrioMy) {
   const rebuyInfo = [];
 
-  const tableRows = cherrio(
+  const tempObject = {
+    status: null,
+    approvedDate: null,
+    startDate: null,
+    endDate: null,
+    stocksQuantity: null,
+    stockType: null,
+  };
+
+  const tableRows = cherrioMy(
     '#movements-section > div > div.buyback.card > div.card-body'
   );
 
-  tableRows.each((index, row) => {
-    const values = cherrio(row).each((index, line) => {
-      const infos = cherrio.load(line);
-      const status = infos(
-        '.w-100.w-lg-50.d-flex.flex-wrap.justify-around.align-items-center'
-      );
+  for (const tableRow of tableRows) {
+    const rowContent = cheerio(tableRow).html();
+    const rows = cheerio.load(rowContent);
 
-      const types = infos(
-        'w-100.w-lg-50.mt-2.mb-3.mb-sm-2.d-xs-flex.justify-center.align-items-center'
-      );
+    const status = rows(
+      '.w-100.w-lg-50.d-flex.flex-wrap.justify-around.align-items-center'
+    );
+    const types = rows(
+      '.w-100.w-lg-50.mt-2.mb-3.mb-sm-2.d-xs-flex.justify-center.align-items-center'
+    );
 
-      const statusTextArray = status
-        .map((index, element) => {
-          return infos(element).text();
-        })
-        .get();
+    const statusTextArray = status
+      .map((index, element) => {
+        return rows(element).text();
+      })
+      .get();
 
-      const processedData = statusTextArray.map((item) => {
-        const lines = item.trim().split('\n');
-        const status = lines[0];
-        const approvedDate = lines[5].replace('APROVADO EM\n', '');
-        const startDate = lines[9].replace('DATA DE INÍCIO\n', '');
-        const endDate = lines[13].replace('DATA DE FIM\n', '');
-      });
-    });
-  });
+    const infosText = types
+      .map((index, element) => {
+        return rows(element).text();
+      })
+      .get();
+
+    for (let i = 0; i < statusTextArray.length; i++) {
+      const tempObject = {};
+      const linesStatus = statusTextArray[i].trim().split('\n');
+      tempObject.status = linesStatus[0];
+      tempObject.approvedDate = linesStatus[5].replace('APROVADO EM\n', '');
+      tempObject.startDate = linesStatus[9].replace('DATA DE INÍCIO\n', '');
+      tempObject.endDate = linesStatus[13].replace('DATA DE FIM\n', '');
+
+      const linesInfo = infosText[i].trim().split('\n');
+      tempObject.stocksQuantity = linesInfo[5];
+      tempObject.stockType = linesInfo[1];
+
+      rebuyInfo.push(tempObject);
+    }
+  }
+
+  return rebuyInfo;
 }
 
 function getDividendInfoFromHTML(cherrio = null) {
