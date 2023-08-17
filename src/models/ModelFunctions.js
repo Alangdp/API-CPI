@@ -157,7 +157,6 @@ export async function updateOrCreateStock(data) {
     });
 
     if (existingStock) {
-      console.log();
       await existingStock.update({
         company_name: data.company_name,
         actualPrice: data.actualPrice,
@@ -167,8 +166,31 @@ export async function updateOrCreateStock(data) {
     }
     return await Stock.create(data);
   } catch (error) {
-    return erroSequelizeFilter(error);
     console.error('Erro ao atualizar/criar registro:', error);
+    return erroSequelizeFilter(error);
+  }
+}
+
+async function updateDividendsOnDatabase() {
+  // const tickers = await getAllTickers();
+
+  const ticker = 'BBAS3';
+
+  try {
+    const basicInfo = await getBasicInfo(ticker);
+
+    basicInfo.dividendInfo.dividends.lastDividends.forEach((dividendInfo) => {
+      const data = {
+        ticker,
+        type: dividendInfo.type,
+        dividendValue: dividendInfo.value,
+        dataEx: dividendInfo.dataEx,
+        dataCom: dividendInfo.dataCom,
+      };
+    });
+  } catch (err) {
+    console.log(err);
+    // Nothing
   }
 }
 
@@ -253,7 +275,6 @@ function getStocksOnTheDay(ticker, transactionsList, date) {
       }
     }
 
-    console.log(stockQuantity, date);
     return stockQuantity;
   } catch (err) {
     console.log(err);
@@ -459,3 +480,5 @@ export async function saveOrUpdatedAllHistory() {
     return erroSequelizeFilter(err);
   }
 }
+
+await updateDividendsOnDatabase();

@@ -170,6 +170,7 @@ export async function getStockrebuy(cherrioMy) {
     }
   }
 
+  console.log(rebuyInfo);
   return rebuyInfo;
 }
 
@@ -512,15 +513,15 @@ export async function getActives(ticker = null) {
 
     let cabeçalhoList = [];
 
-    for (let i = 0; i < actives.data.data.grid[0].columns.length; i++) {
-      cabeçalhoList.push(actives.data.data.grid[0].columns[i].value);
+    const data = actives.data.data;
+
+    for (let i = 0; i < data.grid[0].columns.length; i++) {
+      cabeçalhoList.push(data.grid[0].columns[i].value);
 
       const dataFormated = {
-        date: actives.data.data.grid[0].columns[i].value,
-        title:
-          actives.data.data.grid[1].columns[i].name ||
-          actives.data.data.grid[1].columns[i].title,
-        value: actives.data.data.grid[1].columns[i].value,
+        date: data.grid[0].columns[i].value,
+        title: data.grid[1].columns[i].name || data.grid[1].columns[i].title,
+        value: data.grid[1].columns[i].value,
       };
 
       if (titulos.includes(dataFormated.date)) {
@@ -550,9 +551,10 @@ export async function getActives(ticker = null) {
   }
 }
 
+// Funçao getActives
 // Parado desde 17/07/2023
 // Ultima coisa que foi feita
-// Objetivo e separar o retorna da tabela em trimestres com dados abaixo
+// Objetivo e separar o retorno da tabela em trimestres com dados abaixo
 // Nome do titulo vem no indice 0 na variavel title geralmente
 
 /*
@@ -584,5 +586,3 @@ export async function getActives(ticker = null) {
 // console.log(await getPayout('BBAS3'));
 // console.log(await getPrice('BBAS3'));
 // console.log(await getReports('BBAS3'));
-
-getBasicInfo('RANI3');
