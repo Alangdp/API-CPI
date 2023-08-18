@@ -2,8 +2,19 @@ module.exports = {
   env: {
     browser: true,
     es2021: true,
+    node: true,
   },
-  extends: ['airbnb', 'plugin:prettier/recommended'],
+  extends: [
+    'airbnb',
+    'eslint:recommended',
+    'plugin:prettier/recommended',
+    'plugin:@typescript-eslint/eslint-recommended',
+    'plugin:@typescript-eslint/recommended',
+  ],
+  globals: {
+    Atomics: 'readonly',
+    SharedArrayBuffer: 'readonly',
+  },
   parser: '@babel/eslint-parser',
   parserOptions: {
     ecmaFeatures: {
@@ -13,7 +24,7 @@ module.exports = {
     requireConfigFile: false,
     sourceType: 'module',
   },
-  plugins: ['prettier'],
+  plugins: ['prettier', '@typescript-eslint'],
   rules: {
     'prettier/prettier': 'warn',
     'class-methods-use-this': 0,

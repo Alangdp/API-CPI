@@ -1,6 +1,6 @@
 /*eslint-disable  */
 import axios from 'axios';
-import cheerio from 'cheerio';
+import cheerio , { Cheerio, Element } from 'cheerio';
 
 import fs, { stat } from 'fs';
 import path from 'path';
@@ -9,200 +9,287 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export function readJSONFromFile(filename) {
-  const absolutePath = path.resolve(__dirname, '..', 'json', filename);
-  try {
-    const jsonData = fs.readFileSync(absolutePath, 'utf8');
-    return JSON.parse(jsonData);
-  } catch (err) {
-    console.error('Erro ao ler o arquivo JSON:', err);
-    return null;
-  }
-}
+class Utilities {
+  private $: Cheerio.Root;
 
-function formateNumber(stringToFormat = null) {
-  try {
-    if (typeof stringToFormat !== 'string') throw new Error('Invalid String');
-  } catch (err) {
-    stringToFormat = String(stringToFormat);
+  constructor(html?: string) {
+    if(html) this.$ = cheerio.load(html);
   }
 
-  stringToFormat = stringToFormat.replace(/[^\d,.]/g, '');
-  stringToFormat = stringToFormat.replace(',', '.');
-
-  try {
-    return Number(stringToFormat).toFixed(2);
-  } catch (err) {
-    return stringToFormat;
-  }
-}
-
-const isAlpha = (character) => {
-  return /^[A-Z]$/i.test(character);
-};
-
-export function saveJSONToFile(jsonData, filename) {
-  const absolutePath = path.resolve(__dirname, '..', 'json', filename);
-  if (fs.existsSync(absolutePath)) {
-    fs.unlinkSync(absolutePath);
-  }
-
-  fs.writeFile(
-    absolutePath,
-    JSON.stringify(jsonData, null, 2),
-    'utf8',
-    (err) => {
-      if (err) {
-        console.error(err);
-        return;
-      }
-      console.log('Arquivo salvo com sucesso!');
-    }
-  );
-}
-
-const range = (n) => [...Array(n).keys()];
-
-export const getLastFiveYears = () => {
-  const actualYear = new Date();
-  const lastFiveYears = [];
-
-  for (let index of range(5)) {
-    lastFiveYears.push(actualYear.getFullYear() - index);
-  }
-
-  return lastFiveYears;
-};
-
-// Funcoes de get
-
-export async function getAllTickers() {
-  try {
-    const options = {
-      method: 'GET',
-      url: `https://www.fundamentus.com.br/resultado.php`,
-      headers: {
-        'user-agent': 'CPI/V1',
-        'content-length': 0,
-      },
-    };
-
-    const info = await axios.request(options);
-
-    const $ = cheerio.load(info.data);
-    const links = $('td span a')
-      .map((index, element) => $(element).text())
-      .get();
-
-    return links;
-  } catch (error) {
-    if (error.response.status === 404) {
-      throw new Error('Invalid Ticker');
-    }
-  }
-}
-
-export async function saveTickerJson() {
-  saveJSONToFile(await getAllTickers(), 'tickers.json');
-}
-
-function breakArrayIntoGroups(arr, groupSize) {
-  const result = [];
-  for (let i = 0; i < arr.length; i += groupSize) {
-    const group = arr.slice(i, i + groupSize);
-    result.push(group);
-  }
-  return result;
-}
-
-export async function getStockrebuy(cherrioMy) {
-  const rebuyInfo = [];
-
-  const tempObject = {
-    status: null,
-    approvedDate: null,
-    startDate: null,
-    endDate: null,
-    stocksQuantity: null,
-    stockType: null,
+  static range (n: Number) : Array<number>{
+    return [...Array(n).keys()]
   };
 
-  const tableRows = cherrioMy(
-    '#movements-section > div > div.buyback.card > div.card-body'
-  );
+  static breakArrayIntoGroups(arr: any[], groupSize: number): Array<any> {
+    const result = [];
+    for (let i = 0; i < arr.length; i += groupSize) {
+      const group = arr.slice(i, i + groupSize);
+      result.push(group);
+    }
+    return result;
+  }
 
-  for (const tableRow of tableRows) {
-    const rowContent = cheerio(tableRow).html();
-    const rows = cheerio.load(rowContent);
+  static getLastFiveYears () {
+    const actualYear = new Date();
+    const lastFiveYears = [];
 
-    const status = rows(
-      '.w-100.w-lg-50.d-flex.flex-wrap.justify-around.align-items-center'
-    );
-    const types = rows(
-      '.w-100.w-lg-50.mt-2.mb-3.mb-sm-2.d-xs-flex.justify-center.align-items-center'
-    );
+    for (let index of Utilities.range(5)) {
+      lastFiveYears.push(actualYear.getFullYear() - index);
+    }
 
-    const statusTextArray = status
-      .map((index, element) => {
-        return rows(element).text();
-      })
-      .get();
+    return lastFiveYears;
+  };
 
-    const infosText = types
-      .map((index, element) => {
-        return rows(element).text();
-      })
-      .get();
+  static formateNumber(stringToFormat: string ): number {
 
-    for (let i = 0; i < statusTextArray.length; i++) {
-      const tempObject = {};
-      const linesStatus = statusTextArray[i].trim().split('\n');
-      tempObject.status = linesStatus[0];
-      tempObject.approvedDate = linesStatus[5].replace('APROVADO EM\n', '');
-      tempObject.startDate = linesStatus[9].replace('DATA DE INÍCIO\n', '');
-      tempObject.endDate = linesStatus[13].replace('DATA DE FIM\n', '');
+    stringToFormat = stringToFormat.replace(/[^\d,.]/g, '');
+    stringToFormat = stringToFormat.replace(',', '.');
 
-      const linesInfo = infosText[i].trim().split('\n');
-      tempObject.stocksQuantity = linesInfo[5];
-      tempObject.stockType = linesInfo[1];
-
-      rebuyInfo.push(tempObject);
+    try {
+      return Number(stringToFormat)
+    } catch (err: any) {
+      throw new Error('Invalid String');
     }
   }
 
-  console.log(rebuyInfo);
-  return rebuyInfo;
+  static readJSONFromFile(filename: string) {
+    const absolutePath = path.resolve(__dirname, '..', 'json', filename);
+    try {
+      const jsonData = fs.readFileSync(absolutePath, 'utf8');
+      return JSON.parse(jsonData);
+    } catch (err) {
+      console.error('Erro ao ler o arquivo JSON:', err);
+      return null;
+    }
+  }
+
+  static saveJSONToFile(jsonData: Array<any>, filename: string) {
+    const absolutePath = path.resolve(__dirname, '..', 'json', filename);
+    if (fs.existsSync(absolutePath)) {
+      fs.unlinkSync(absolutePath);
+    }
+
+    fs.writeFile(
+      absolutePath,
+      JSON.stringify(jsonData, null, 2),
+      'utf8',
+      (err) => {
+        if (err) {
+          console.error(err);
+          return;
+        }
+      }
+    );
+  }
+
+  extractText(selector: string): string {
+    const element: string = this.$(selector).text();
+    if(!element) return "null"
+    return element
+  }
+
+  extractElement(selector: string): Cheerio.Element {
+    const element: Cheerio.Element = this.$(selector);
+    return element
+  }
+
+  extractNumber(selector: string): number {
+    return Utilities.formateNumber(this.extractText(selector));
+  }
+
 }
 
-function getDividendInfoFromHTML(cherrio = null) {
-  const lastDividends = [];
+class TickerFetcher  {
+  public ticker: string
+  private Utility?: Utilities;
 
-  cherrio = cherrio ? cherrio : null;
-  const tableRows = cherrio(
-    '#earning-section > div.list > div > div:nth-child(2) > table > tbody'
-  );
+  constructor(ticker: string) {
+    this.ticker = ticker;
+  }
 
-  tableRows.each((index, row) => {
-    const values = cherrio(row)
-      .find('td')
-      .map((index, element) => cherrio(element).text())
-      .toArray();
+  async initialize(): Promise<void> {
+    const htmlPage: string = await this.getHtmlPage();
+    this.Utility = new Utilities(htmlPage);
+  }
 
-    breakArrayIntoGroups(values, 4).map((dividendInfo) => {
-      lastDividends.push({
-        type: dividendInfo[0],
-        dataEx: dividendInfo[1],
-        dataCom: dividendInfo[2],
-        value: dividendInfo[3],
+  async getHtmlPage() {
+    try {
+      const options = {
+        method: 'GET',
+        url: `https://statusinvest.com.br/acoes/${this.ticker}`,
+        headers: {
+          'user-agent': 'CPI/V1',
+          'content-length': 0,
+        },
+      };
+
+      return (await axios.request(options)).data;
+    } catch(err : any) {
+      throw new Error("Error: " + err.message);
+    }
+  }
+
+
+  async getBasicInfo() {
+    if (!this.Utility) {
+      throw new Error('Utility not initialized.');
+    }
+
+    const selectors = {
+      totalStocksInCirculation: 'div[title="Total de papéis disponíveis para negociação"] div strong',
+      freeFloat: '#company-section > div:nth-child(1) > div > div.top-info.info-3.sm.d-flex.justify-between.mb-3 > div:nth-child(11) > div > div > strong',
+      netEquity: '#company-section > div:nth-child(1) > div > div.top-info.info-3.sm.d-flex.justify-between.mb-3 > div:nth-child(1) > div > div > strong',
+      marketValue: '#company-section > div:nth-child(1) > div > div.top-info.info-3.sm.d-flex.justify-between.mb-3 > div:nth-child(7) > div > div > strong',
+      price: '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(2) > div > div:nth-child(1) > strong',
+      porcentLast12Days: '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(5) > div > div:nth-child(1) > strong',
+      dividendPorcent: '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(4) > div > div:nth-child(1) > strong',
+      name: 'title'
+    };
+
+    const totalStocksInCirculation: string = this.Utility.extractText(selectors.totalStocksInCirculation) ;
+    const freeFloat:number = this.Utility.extractNumber(selectors.freeFloat);
+    const netEquity: string = this.Utility.extractText(selectors.netEquity);
+    const marketValue: string = this.Utility.extractText(selectors.marketValue);
+    const price:number = this.Utility.extractNumber(selectors.price);
+    const porcentLast12Days:Number = this.Utility.extractNumber(selectors.porcentLast12Days);
+    const dividendPorcent:number = this.Utility.extractNumber(selectors.dividendPorcent)
+    const dividiendPorcentInDecimal: Number = dividendPorcent / 100;
+    const name:string = this.Utility.extractText(selectors.name);
+
+    const data = {
+      // dividendInfo: getDividendInfoFromHTML($),
+      // rebuyStock: getStockrebuy($),
+      name,
+      price,
+      dividendPorcent,
+      dividiendPorcentInDecimal,
+      porcentLast12Days,
+      totalStocksInCirculation,
+      freeFloat,
+      netEquity,
+      marketValue,
+    };
+
+    return data;
+  }
+
+  async getAllTickers(): Promise<string[]> {
+    try {
+      const options = {
+        method: 'GET',
+        url: `https://www.fundamentus.com.br/resultado.php`,
+        headers: {
+          'user-agent': 'CPI/V1',
+          'content-length': 0,
+        },
+      };
+
+      const response = await axios.request(options);
+
+      const $ = cheerio.load(response.data);
+      const tickers: string[] = $('td span a').map((index, element) => $(element).text()).get();
+
+      return tickers;
+    } catch (error: any) {
+      if (error.response && error.response.status === 404) {
+        throw new Error('Invalid Ticker');
+      }
+
+      throw new Error('Error fetching tickers');
+    }
+  }
+
+  async getStockrebuy():  Promise<any[]> {
+    const selectors = {
+      table: '#movements-section > div > div.buyback.card > div.card-body',
+      types: '.w-100.w-lg-50.mt-2.mb-3.mb-sm-2.d-xs-flex.justify-center.align-items-center',
+      status: '.w-100.w-lg-50.d-flex.flex-wrap.justify-around.align-items-center'
+    };
+
+    const rebuyInfo = [];
+
+    const tempObject = {
+      status: null,
+      approvedDate: null,
+      startDate: null,
+      endDate: null,
+      stocksQuantity: null,
+      stockType: null,
+    };
+
+    const tableRows = this.Utility?.extractElement(selectors.table);
+
+    for (const tableRow of tableRows) {
+      const rowContent:Cheerio.Root = cheerio(tableRow).html();
+      const rows = cheerio.load(rowContent, {});
+
+      const status = this.Utility?.extractElement(selectors.status);
+      const types = this.Utility?.extractElement(selectors.types)
+      if(status === undefined || types === undefined) return []
+
+      const statusTextArray = status
+        .map((index: number, element: Cheerio.Element) => {
+          return rows(element).text();
+        })
+        .get();
+
+      const infosText = types
+        .map((index: number, element: Cheerio.Element) => {
+          return rows(element).text();
+        })
+        .get();
+
+      for (let i = 0; i < statusTextArray.length; i++) {
+        const linesStatus = statusTextArray[i].trim().split('\n');
+        const linesInfo = infosText[i].trim().split('\n');
+
+        const tempObject = {
+          status : linesStatus[0],
+          approvedDate : linesStatus[5].replace('APROVADO EM\n', ''),
+          startDate : linesStatus[9].replace('DATA DE INÍCIO\n', ''),
+          endDate : linesStatus[13].replace('DATA DE FIM\n', ''),
+          stocksQuantity : linesInfo[5],
+          stockType : linesInfo[1],
+        };
+
+        rebuyInfo.push(tempObject);
+      }
+    }
+
+    return rebuyInfo;
+  }
+
+  getDividendInfoFromHTML(): Array<any> {
+    const lastDividends = [];
+
+    const tableRows = this.Utility?.extractElement('#earning-section > div.list > div > div:nth-child(2) > table > tbody');
+
+    tableRows.each((index: number, row: Cheerio.Element) => {
+      const values = this.Utility(row)
+        .find('td')
+        .map((index: number, element: Cheerio.Element) => this.Utility?.extractText(element))
+        .toArray();
+
+      Utilities.breakArrayIntoGroups(values, 4).map((dividendInfo) => {
+        lastDividends.push({
+          type: dividendInfo[0],
+          dataEx: dividendInfo[1],
+          dataCom: dividendInfo[2],
+          value: dividendInfo[3],
+        });
       });
     });
-  });
 
-  const price = formateNumber(
-    cherrio(
-      '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(2) > div > div:nth-child(1) > strong'
-    ).text()
-  );
+    const price = this.Utility?.extractNumber('#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(2) > div > div:nth-child(1) > strong');
+
+
+}
+
+const teste:TickerFetcher = new TickerFetcher("RANI3")
+await teste.initialize()
+console.log(await teste.getStockrebuy())
+// Funcoes de get
+
 
   const dividiendPorcentInDecimal =
     formateNumber(
