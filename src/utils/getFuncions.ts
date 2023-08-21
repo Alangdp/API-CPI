@@ -9,12 +9,68 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+
+interface DataReport {
+  year: string
+}
+interface Report {
+  yearReport: string,
+  date: string,
+  type: string,
+  subject: string,
+  linkPDF: string,
+}
+interface ReportObject {
+  tipo: string,
+  especie: string,
+  year: string,
+  dataReferencia_F: string,
+  assunto: string,
+  linkPdf: string
+}
+interface Dividend {
+  type: string;
+  dataEx: string;
+  dataCom: string;
+  value: number;
+}
+
+interface DividendInfoReturn {
+  dividends: Dividend[];
+  bestPrice: {
+    bazin: string;
+    granham: number;
+  };
+}
+
+interface PassiveChartObject {
+  year: string,
+  ativoTotal: string,
+  passivoTotal: string,
+  ativoCirculante: string,
+  ativoNaoCirculante: string,
+  passivoCirculante: string,
+  passivoNaoCirculante: string,
+  patrimonioLiquido: string,
+}
+
 class Utilities {
   private $: Cheerio.Root;
 
   constructor(html?: string) {
     if(html) this.$ = cheerio.load(html);
   }
+
+  static getLastYears(x = 0) {
+    const actualYear = new Date();
+    const lastYears = [];
+
+    for (let index of Utilities.range(x)) {
+      lastYears.push(actualYear.getFullYear() - index);
+    }
+
+    return lastYears;
+  };
 
   static range (n: Number) : Array<number>{
     return [...Array(n).keys()]
@@ -143,8 +199,10 @@ class TickerFetcher  {
       price: '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(2) > div > div:nth-child(1) > strong',
       porcentLast12Days: '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(5) > div > div:nth-child(1) > strong',
       dividendPorcent: '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(4) > div > div:nth-child(1) > strong',
-      name: 'title'
-    };
+      name: 'title',
+      LPA: '#indicators-section > div.indicator-today-container > div > div:nth-child(1) > div > div:nth-child(11) > div > div > strong',
+      VPA: '#indicators-section > div.indicator-today-container > div > div:nth-child(1) > div > div:nth-child(9) > div > div > strong',
+    }
 
     const totalStocksInCirculation: string = this.Utility.extractText(selectors.totalStocksInCirculation) ;
     const freeFloat:number = this.Utility.extractNumber(selectors.freeFloat);
@@ -155,6 +213,9 @@ class TickerFetcher  {
     const dividendPorcent:number = this.Utility.extractNumber(selectors.dividendPorcent)
     const dividiendPorcentInDecimal: Number = dividendPorcent / 100;
     const name:string = this.Utility.extractText(selectors.name);
+    const LPA:number = this.Utility.extractNumber(selectors.LPA);
+    const VPA:number = this.Utility.extractNumber(selectors.VPA);
+
 
     const data = {
       // dividendInfo: getDividendInfoFromHTML($),
@@ -168,6 +229,8 @@ class TickerFetcher  {
       freeFloat,
       netEquity,
       marketValue,
+      LPA,
+      VPA
     };
 
     return data;
@@ -259,16 +322,24 @@ class TickerFetcher  {
     return rebuyInfo;
   }
 
-  getDividendInfoFromHTML(): Array<any> {
-    const lastDividends = [];
+  async getDividendInfo() {
+    const selectors = {
+      tableRows: '#earning-section > div.list > div > div:nth-child(2) > table > tbody',
+      price: '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(2) > div > div:nth-child(1) > strong',
+      LPA: '#indicators-section > div.indicator-today-container > div > div:nth-child(1) > div > div:nth-child(11) > div > div > strong',
+      VPA: '#indicators-section > div.indicator-today-container > div > div:nth-child(1) > div > div:nth-child(9) > div > div > strong',
+      dividendPorcent: '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(4) > div > div:nth-child(1) > strong',
+    }
 
-    const tableRows = this.Utility?.extractElement('#earning-section > div.list > div > div:nth-child(2) > table > tbody');
+    const lastDividends: Dividend[] = [];
+
+    const tableRows = this.Utility?.extractElement(selectors.tableRows);
 
     tableRows.each((index: number, row: Cheerio.Element) => {
-      const values = this.Utility(row)
+      const values: Array<Cheerio.Element> = cheerio(row)
         .find('td')
         .map((index: number, element: Cheerio.Element) => this.Utility?.extractText(element))
-        .toArray();
+        .toArray()
 
       Utilities.breakArrayIntoGroups(values, 4).map((dividendInfo) => {
         lastDividends.push({
@@ -280,237 +351,35 @@ class TickerFetcher  {
       });
     });
 
-    const price = this.Utility?.extractNumber('#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(2) > div > div:nth-child(1) > strong');
+    const price: number = this.Utility?.extractNumber(selectors.price) || 0;
+    const LPA: number = this.Utility?.extractNumber(selectors.LPA) || 0;
+    const VPA: number = this.Utility?.extractNumber(selectors.VPA) || 0;
+    const dividendPorcent: number = this.Utility?.extractNumber(selectors.dividendPorcent) || 0;
+    const dividiendPorcentInDecimal = dividendPorcent / 100;
 
+    return {
+      dividends: {
+        lastDividends: lastDividends,
+        dividiendPorcentInDecimal,
+        dividendPorcent,
+      },
 
-}
-
-const teste:TickerFetcher = new TickerFetcher("RANI3")
-await teste.initialize()
-console.log(await teste.getStockrebuy())
-// Funcoes de get
-
-
-  const dividiendPorcentInDecimal =
-    formateNumber(
-      cherrio(
-        '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(5) > div > div:nth-child(1) > strong'
-      ).text()
-    ) / 100;
-
-  const LPA = formateNumber(
-    cherrio(
-      '#indicators-section > div.indicator-today-container > div > div:nth-child(1) > div > div:nth-child(11) > div > div > strong'
-    ).text()
-  );
-
-  const VPA = formateNumber(
-    cherrio(
-      '#indicators-section > div.indicator-today-container > div > div:nth-child(1) > div > div:nth-child(9) > div > div > strong'
-    ).text()
-  );
-
-  return {
-    dividends: {
-      lastDividends: lastDividends,
-      dividiendPorcentInDecimal,
-      dividiendPorcent: dividiendPorcentInDecimal * 100,
-    },
-
-    bestPrice: {
-      bazin: formateNumber(price / dividiendPorcentInDecimal),
-      granham: (15 * LPA * VPA) ** 0.5,
-    },
-  };
-}
-
-export async function getBasicInfo(ticker = null) {
-  ticker = ticker ? ticker.toUpperCase() : null;
-
-  try {
-    const options = {
-      method: 'GET',
-      url: `https://statusinvest.com.br/acoes/${ticker}`,
-      headers: {
-        'user-agent': 'CPI/V1',
-        'content-length': 0,
+      bestPrice: {
+        bazin: Utilities.formateNumber(`${price / dividiendPorcentInDecimal}`),
+        granham: (15 * LPA * VPA) ** 0.5,
       },
     };
-
-    const info = await axios.request(options);
-
-    const $ = cheerio.load(info.data);
-
-    const totalStocksInCirculation = $(
-      'div[title="Total de papéis disponíveis para negociação"] div strong'
-    ).text();
-
-    const freeFloat = formateNumber(
-      $(
-        '#company-section > div:nth-child(1) > div > div.top-info.info-3.sm.d-flex.justify-between.mb-3 > div:nth-child(11) > div > div > strong'
-      ).text()
-    );
-
-    const netEquity = $(
-      '#company-section > div:nth-child(1) > div > div.top-info.info-3.sm.d-flex.justify-between.mb-3 > div:nth-child(1) > div > div > strong'
-    ).text();
-
-    const marketValue = $(
-      '#company-section > div:nth-child(1) > div > div.top-info.info-3.sm.d-flex.justify-between.mb-3 > div:nth-child(7) > div > div > strong'
-    ).text();
-
-    const price = formateNumber(
-      $(
-        '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(2) > div > div:nth-child(1) > strong'
-      ).text()
-    );
-
-    const dividiendPorcentInDecimal = (
-      formateNumber(
-        $(
-          '#main-2 > div:nth-child(4) > div > div.pb-3.pb-md-5 > div > div:nth-child(5) > div > div:nth-child(1) > strong'
-        ).text()
-      ) / 100
-    ).toFixed(2);
-
-    const data = {
-      dividendInfo: getDividendInfoFromHTML($),
-      rebuyStock: getStockrebuy($),
-      name: $('title').text(),
-      totalStocksInCirculation,
-      freeFloat,
-      netEquity,
-      marketValue,
-    };
-
-    return data;
-  } catch (error) {
-    if (error.response && error.response.status === 404) {
-      throw new Error('Invalid Ticker');
-    }
-    console.log(error);
-    throw new Error('Error in Request');
   }
-}
 
-export async function getPrice(ticker = null) {
-  ticker = ticker ? ticker.toUpperCase() : null;
+  async getPrice() {
 
-  try {
-    const options = {
-      method: 'POST',
-      url: 'https://statusinvest.com.br/acao/tickerprice',
-      params: { ticker, type: 1, 'currences[]': '1' },
-      headers: {
-        cookie: '_adasys=b848d786-bc93-43d6-96a6-01bb17cbc296',
-        'user-agent': 'CPI/V1',
-        'content-length': 0,
-      },
-    };
+    const ticker = this.ticker;
 
-    const price = await axios.request(options);
-    if (price.data[0].prices.length === 0) return null;
-
-    const data = {
-      lastPrice: price.data[0].prices.pop(),
-      priceVariation: price.data[0].prices,
-      currency: price.data[0].currency,
-    };
-
-    return data;
-  } catch (error) {
-    return null;
-  }
-}
-
-export async function getPayout(ticker = null) {
-  ticker = ticker ? ticker.toUpperCase() : null;
-  if (!ticker) return null;
-
-  try {
-    const options = {
-      method: 'POST',
-      url: 'https://statusinvest.com.br/acao/payoutresult',
-      params: { code: ticker, type: 1 },
-      headers: {
-        cookie: '_adasys=b848d786-bc93-43d6-96a6-01bb17cbc296',
-        'user-agent': 'CPI/V1',
-        'content-length': 0,
-      },
-    };
-
-    const payout = await axios.request(options);
-    if (!payout.data) return null;
-
-    const data = {
-      actual: payout.data.actual,
-      average: payout.data.average,
-      minValue: payout.data.minValue,
-      maxValue: payout.data.maxValue,
-      currency: payout.data.currency,
-      chart: payout.data.chart,
-    };
-
-    return data;
-  } catch (error) {
-    return null;
-  }
-}
-
-export async function getPassiveChart(ticker = null) {
-  ticker = ticker ? ticker.toUpperCase() : null;
-  if (!ticker) return null;
-
-  try {
-    const options = {
-      method: 'POST',
-      url: 'https://statusinvest.com.br/acao/getbsactivepassivechart',
-      params: { code: ticker, type: 1 },
-      headers: {
-        cookie: '_adasys=b848d786-bc93-43d6-96a6-01bb17cbc296',
-        'user-agent': 'CPI/V1',
-        'content-length': 0,
-      },
-    };
-
-    const balance = await axios.request(options);
-    if (balance.data.length === 0) return null;
-
-    const data = balance.data.map((item) => {
-      return {
-        year: item.year,
-        totalAssets: item.ativoTotal,
-        totalLiabilities: item.passivoTotal,
-        currentAssets: item.ativoCirculante,
-        nonCurrentAssets: item.ativoNaoCirculante,
-        currentLiabilities: item.passivoCirculante,
-        nonCurrentLiabilities: item.passivoNaoCirculante,
-        shareholdersEquity: item.patrimonioLiquido,
-      };
-    });
-
-    return data;
-  } catch (error) {
-    return null;
-  }
-}
-
-export async function getReports(ticker = null) {
-  ticker = ticker ? ticker.toUpperCase() : null;
-  if (!ticker) return null;
-
-  const lastFiveYears = getLastFiveYears();
-  const data = {};
-  const variavelLEGAL = [];
-
-  try {
-    for (const year of lastFiveYears) {
-      const tempData = [];
-
+    try {
       const options = {
         method: 'POST',
-        url: 'https://statusinvest.com.br/acao/getassetreports',
-        params: { code: ticker, year: year },
+        url: 'https://statusinvest.com.br/acao/tickerprice',
+        params: { ticker , type: 1, 'currences[]': '1' },
         headers: {
           cookie: '_adasys=b848d786-bc93-43d6-96a6-01bb17cbc296',
           'user-agent': 'CPI/V1',
@@ -518,35 +387,150 @@ export async function getReports(ticker = null) {
         },
       };
 
-      const reports = await axios.request(options);
-      if (!reports.data.data) data[year] = null;
+      const response = await axios.request(options);
+      if (response.data[0].prices.length === 0) return null;
 
-      reports.data.data.forEach((report) => {
-        if (report.tipo === undefined) report.tipo = ' ';
-        const type = (report.tipo = report.tipo.trim()
-          ? report.tipo
-          : report.especie);
+      const data = {
+        lastPrice: response.data[0].prices.pop(),
+        priceVariation: response.data[0].prices,
+        currency: response.data[0].currency,
+      };
 
-        tempData.push({
-          yearReport: report.year,
-          date: report.dataReferencia_F,
-          type,
-          subject: report.assunto,
-          linkPDF: report.linkPdf,
-        });
+      return data;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async getPayout() {
+    const ticker = this.ticker
+
+    try {
+      const options = {
+        method: 'POST',
+        url: 'https://statusinvest.com.br/acao/payoutresult',
+        params: { code: ticker, type: 1 },
+        headers: {
+          cookie: '_adasys=b848d786-bc93-43d6-96a6-01bb17cbc296',
+          'user-agent': 'CPI/V1',
+          'content-length': 0,
+        },
+      };
+
+      const payout = await axios.request(options);
+      if (!payout.data) return null;
+
+      const data = {
+        actual: payout.data.actual,
+        average: payout.data.average,
+        minValue: payout.data.minValue,
+        maxValue: payout.data.maxValue,
+        currency: payout.data.currency,
+        chart: payout.data.chart,
+      };
+
+      return data;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async getPassiveChart() {
+    const ticker = this.ticker;
+
+    try {
+      const options = {
+        method: 'POST',
+        url: 'https://statusinvest.com.br/acao/getbsactivepassivechart',
+        params: { code: ticker, type: 1 },
+        headers: {
+          cookie: '_adasys=b848d786-bc93-43d6-96a6-01bb17cbc296',
+          'user-agent': 'CPI/V1',
+          'content-length': 0,
+        },
+      };
+
+      const response = await axios.request(options);
+      if (response.data.length === 0) return null;
+
+      const data = response.data.map((item: PassiveChartObject) => {
+        return {
+          year: item.year || null,
+          totalAssets: item.ativoTotal || null,
+          totalLiabilities: item.passivoTotal || null,
+          currentAssets: item.ativoCirculante || null,
+          nonCurrentAssets: item.ativoNaoCirculante || null,
+          currentLiabilities: item.passivoCirculante || null,
+          nonCurrentLiabilities: item.passivoNaoCirculante || null,
+          shareholdersEquity: item.patrimonioLiquido || null,
+        };
       });
 
-      data[year] = tempData;
+      return data;
+    } catch (error) {
+      return null;
     }
-
-    saveJSONToFile(data, 'reports.json');
-
-    return data;
-  } catch (error) {
-    return null;
   }
+
+  async getReports() {
+    const ticker = this.ticker;
+
+    const lastFiveYears = Utilities.getLastYears(5);
+    const data: any = {};
+    const variavelLEGAL = [];
+
+    try {
+      for (const year of lastFiveYears) {
+        const tempData: Report[] = [];
+
+        const options = {
+          method: 'POST',
+          url: 'https://statusinvest.com.br/acao/getassetreports',
+          params: { code: ticker, year: year },
+          headers: {
+            cookie: '_adasys=b848d786-bc93-43d6-96a6-01bb17cbc296',
+            'user-agent': 'CPI/V1',
+            'content-length': 0,
+          },
+        };
+
+        const response = await axios.request(options);
+        const responseInfo = response.data;
+        if (!responseInfo.data) data[year] = [];
+
+        responseInfo.data.forEach((report: ReportObject) => {
+          if (report.tipo === undefined) report.tipo = ' ';
+          const type = (report.tipo = report.tipo.trim()
+            ? report.tipo
+            : report.especie);
+
+          tempData.push({
+            yearReport: report.year,
+            date: report.dataReferencia_F,
+            type,
+            subject: report.assunto,
+            linkPDF: report.linkPdf,
+          });
+        });
+
+        data[year] = tempData;
+      }
+
+      return data;
+    } catch (error) {
+      return null;
+    }
+  }
+
 }
 
+// const teste:TickerFetcher = new TickerFetcher("RANI3")
+// await teste.initialize()
+// console.log(await teste.getBasicInfo())
+// console.log(await teste.getReports())
+
+
+/* eslint-disable */
 export async function getActives(ticker = null) {
   try {
     ticker = ticker ? ticker.toUpperCase() : null;
@@ -667,9 +651,3 @@ export async function getActives(ticker = null) {
       'Participação dos Não Controladores',
     ];
 */
-
-// console.log(await getActives('BBAS3'));
-// console.log(await getBasicInfo('BBAS3'));
-// console.log(await getPayout('BBAS3'));
-// console.log(await getPrice('BBAS3'));
-// console.log(await getReports('BBAS3'));
