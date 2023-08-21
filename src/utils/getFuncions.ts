@@ -1,15 +1,9 @@
 /*eslint-disable  */
 import axios from 'axios';
-import cheerio , { Cheerio, Element } from 'cheerio';
+import Utilities from './Utilities.ts';
+import Cheerio from 'cheerio';
 
-import fs, { stat } from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-
+const Root = Cheerio.root
 interface DataReport {
   year: string
 }
@@ -52,107 +46,6 @@ interface PassiveChartObject {
   passivoCirculante: string,
   passivoNaoCirculante: string,
   patrimonioLiquido: string,
-}
-
-class Utilities {
-  private $: Cheerio.Root;
-
-  constructor(html?: string) {
-    if(html) this.$ = cheerio.load(html);
-  }
-
-  static getLastYears(x = 0) {
-    const actualYear = new Date();
-    const lastYears = [];
-
-    for (let index of Utilities.range(x)) {
-      lastYears.push(actualYear.getFullYear() - index);
-    }
-
-    return lastYears;
-  };
-
-  static range (n: Number) : Array<number>{
-    return [...Array(n).keys()]
-  };
-
-  static breakArrayIntoGroups(arr: any[], groupSize: number): Array<any> {
-    const result = [];
-    for (let i = 0; i < arr.length; i += groupSize) {
-      const group = arr.slice(i, i + groupSize);
-      result.push(group);
-    }
-    return result;
-  }
-
-  static getLastFiveYears () {
-    const actualYear = new Date();
-    const lastFiveYears = [];
-
-    for (let index of Utilities.range(5)) {
-      lastFiveYears.push(actualYear.getFullYear() - index);
-    }
-
-    return lastFiveYears;
-  };
-
-  static formateNumber(stringToFormat: string ): number {
-
-    stringToFormat = stringToFormat.replace(/[^\d,.]/g, '');
-    stringToFormat = stringToFormat.replace(',', '.');
-
-    try {
-      return Number(stringToFormat)
-    } catch (err: any) {
-      throw new Error('Invalid String');
-    }
-  }
-
-  static readJSONFromFile(filename: string) {
-    const absolutePath = path.resolve(__dirname, '..', 'json', filename);
-    try {
-      const jsonData = fs.readFileSync(absolutePath, 'utf8');
-      return JSON.parse(jsonData);
-    } catch (err) {
-      console.error('Erro ao ler o arquivo JSON:', err);
-      return null;
-    }
-  }
-
-  static saveJSONToFile(jsonData: Array<any>, filename: string) {
-    const absolutePath = path.resolve(__dirname, '..', 'json', filename);
-    if (fs.existsSync(absolutePath)) {
-      fs.unlinkSync(absolutePath);
-    }
-
-    fs.writeFile(
-      absolutePath,
-      JSON.stringify(jsonData, null, 2),
-      'utf8',
-      (err) => {
-        if (err) {
-          console.error(err);
-          return;
-        }
-      }
-    );
-  }
-
-  extractText(selector: string): string {
-    const element: string = this.$(selector).text();
-    if(!element) return "null"
-    return element
-  }
-
-  extractElement(selector: string): Cheerio.Element {
-    const element: Cheerio.Element = this.$(selector);
-    return element
-  }
-
-  extractNumber(selector: string): number {
-    return Utilities.formateNumber(this.extractText(selector));
-  }
-
 }
 
 class TickerFetcher  {
@@ -216,7 +109,6 @@ class TickerFetcher  {
     const LPA:number = this.Utility.extractNumber(selectors.LPA);
     const VPA:number = this.Utility.extractNumber(selectors.VPA);
 
-
     const data = {
       // dividendInfo: getDividendInfoFromHTML($),
       // rebuyStock: getStockrebuy($),
@@ -249,7 +141,7 @@ class TickerFetcher  {
 
       const response = await axios.request(options);
 
-      const $ = cheerio.load(response.data);
+      const $ = Cheerio.load(response.data);
       const tickers: string[] = $('td span a').map((index, element) => $(element).text()).get();
 
       return tickers;
@@ -281,23 +173,24 @@ class TickerFetcher  {
     };
 
     const tableRows = this.Utility?.extractElement(selectors.table);
+    if(!tableRows) return []
 
     for (const tableRow of tableRows) {
-      const rowContent:Cheerio.Root = cheerio(tableRow).html();
-      const rows = cheerio.load(rowContent, {});
+      const rowContent:any = Cheerio(tableRow).html();
+      const rows = Cheerio.load(rowContent, {});
 
       const status = this.Utility?.extractElement(selectors.status);
       const types = this.Utility?.extractElement(selectors.types)
       if(status === undefined || types === undefined) return []
 
-      const statusTextArray = status
-        .map((index: number, element: Cheerio.Element) => {
+      const statusTextArray = Cheerio(status)
+        .map((index: number, element: cheerio.Element) => {
           return rows(element).text();
         })
         .get();
 
-      const infosText = types
-        .map((index: number, element: Cheerio.Element) => {
+      const infosText = Cheerio(types)
+        .each((index: number, element: cheerio.Element) => {
           return rows(element).text();
         })
         .get();
@@ -333,12 +226,13 @@ class TickerFetcher  {
 
     const lastDividends: Dividend[] = [];
 
-    const tableRows = this.Utility?.extractElement(selectors.tableRows);
+    const tableRows = Cheerio(this.Utility?.extractElement(selectors.tableRows));
+    if(!tableRows) return []
 
-    tableRows.each((index: number, row: Cheerio.Element) => {
-      const values: Array<Cheerio.Element> = cheerio(row)
+    tableRows.each((index: number, row: cheerio.Element) => {
+      const values: Array<cheerio.Element> = Cheerio(row)
         .find('td')
-        .map((index: number, element: Cheerio.Element) => this.Utility?.extractText(element))
+        .map((index: number, element: cheerio.Element) => Cheerio(element))
         .toArray()
 
       Utilities.breakArrayIntoGroups(values, 4).map((dividendInfo) => {
@@ -531,96 +425,96 @@ class TickerFetcher  {
 
 
 /* eslint-disable */
-export async function getActives(ticker = null) {
-  try {
-    ticker = ticker ? ticker.toUpperCase() : null;
-    if (!ticker) return null;
+// export async function getActives(ticker = null) {
+//   try {
+//     ticker = ticker ? ticker.toUpperCase() : null;
+//     if (!ticker) return null;
 
-    const lastFiveYears = getLastFiveYears();
+//     const lastFiveYears = getLastFiveYears();
 
-    const options = {
-      method: 'POST',
-      url: 'https://statusinvest.com.br/acao/getativos',
-      params: {
-        code: ticker,
-        type: 1,
-        range: { max: lastFiveYears[0], min: lastFiveYears.pop() },
-      },
-      headers: {
-        cookie: '_adasys=b848d786-bc93-43d6-96a6-01bb17cbc296',
-        'user-agent': 'CPI/V1',
-        'content-length': 0,
-      },
-    };
+//     const options = {
+//       method: 'POST',
+//       url: 'https://statusinvest.com.br/acao/getativos',
+//       params: {
+//         code: ticker,
+//         type: 1,
+//         range: { max: lastFiveYears[0], min: lastFiveYears.pop() },
+//       },
+//       headers: {
+//         cookie: '_adasys=b848d786-bc93-43d6-96a6-01bb17cbc296',
+//         'user-agent': 'CPI/V1',
+//         'content-length': 0,
+//       },
+//     };
 
-    const actives = await axios.request(options);
-    if (actives.data.length === 0) return null;
+//     const actives = await axios.request(options);
+//     if (actives.data.length === 0) return null;
 
-    const info = {};
-    const titulos = [
-      'Ativo Total - (R$)',
-      'Ativo Circulante - (R$)',
-      'Aplicações Financeiras - (R$)',
-      'Caixa e Equivalentes de Caixa - (R$)',
-      'Contas a Receber - (R$)',
-      'Estoque - (R$)',
-      'Ativo Não Circulante - (R$)',
-      'Ativo Realizável a Longo Prazo - (R$)',
-      'Investimentos - (R$)',
-      'Imobilizado - (R$)',
-      'Intangível - (R$)',
-      'Passivo Total - (R$)',
-      'Passivo Circulante - (R$)',
-      'Passivo Não Circulante - (R$)',
-      'Patrimônio Líquido Consolidado - (R$)',
-      'Capital Social Realizado - (R$)',
-      'Reserva Capital - (R$)',
-      'Reserva Lucros - (R$)',
-      'Participação dos Não Controladores',
-    ];
+//     const info = {};
+//     const titulos = [
+//       'Ativo Total - (R$)',
+//       'Ativo Circulante - (R$)',
+//       'Aplicações Financeiras - (R$)',
+//       'Caixa e Equivalentes de Caixa - (R$)',
+//       'Contas a Receber - (R$)',
+//       'Estoque - (R$)',
+//       'Ativo Não Circulante - (R$)',
+//       'Ativo Realizável a Longo Prazo - (R$)',
+//       'Investimentos - (R$)',
+//       'Imobilizado - (R$)',
+//       'Intangível - (R$)',
+//       'Passivo Total - (R$)',
+//       'Passivo Circulante - (R$)',
+//       'Passivo Não Circulante - (R$)',
+//       'Patrimônio Líquido Consolidado - (R$)',
+//       'Capital Social Realizado - (R$)',
+//       'Reserva Capital - (R$)',
+//       'Reserva Lucros - (R$)',
+//       'Participação dos Não Controladores',
+//     ];
 
-    let lastTitle = null;
-    let lastDate = null;
+//     let lastTitle = null;
+//     let lastDate = null;
 
-    let cabeçalhoList = [];
+//     let cabeçalhoList = [];
 
-    const data = actives.data.data;
+//     const data = actives.data.data;
 
-    for (let i = 0; i < data.grid[0].columns.length; i++) {
-      cabeçalhoList.push(data.grid[0].columns[i].value);
+//     for (let i = 0; i < data.grid[0].columns.length; i++) {
+//       cabeçalhoList.push(data.grid[0].columns[i].value);
 
-      const dataFormated = {
-        date: data.grid[0].columns[i].value,
-        title: data.grid[1].columns[i].name || data.grid[1].columns[i].title,
-        value: data.grid[1].columns[i].value,
-      };
+//       const dataFormated = {
+//         date: data.grid[0].columns[i].value,
+//         title: data.grid[1].columns[i].name || data.grid[1].columns[i].title,
+//         value: data.grid[1].columns[i].value,
+//       };
 
-      if (titulos.includes(dataFormated.date)) {
-        lastTitle = dataFormated.date;
-        info[lastTitle] = {};
-      }
+//       if (titulos.includes(dataFormated.date)) {
+//         lastTitle = dataFormated.date;
+//         info[lastTitle] = {};
+//       }
 
-      if (/^[1-4]T\d{4}$/.test(dataFormated.date)) {
-        lastDate = dataFormated.date;
-        info[lastTitle].lastDate = {
-          AV: null,
-          AH: null,
-          value: null,
-        };
-        info[lastTitle].lastDate.value = dataFormated.value;
-      }
+//       if (/^[1-4]T\d{4}$/.test(dataFormated.date)) {
+//         lastDate = dataFormated.date;
+//         info[lastTitle].lastDate = {
+//           AV: null,
+//           AH: null,
+//           value: null,
+//         };
+//         info[lastTitle].lastDate.value = dataFormated.value;
+//       }
 
-      if (dataFormated.date === 'AH' || dataFormated.date === 'AV') {
-        info[lastDate][dataFormated.date] = dataFormated.value;
-      }
-    }
+//       if (dataFormated.date === 'AH' || dataFormated.date === 'AV') {
+//         info[lastDate][dataFormated.date] = dataFormated.value;
+//       }
+//     }
 
-    saveJSONToFile(info, 'TERSTE.json');
-    return info;
-  } catch (error) {
-    return null;
-  }
-}
+//     saveJSONToFile(info, 'TERSTE.json');
+//     return info;
+//   } catch (error) {
+//     return null;
+//   }
+// }
 
 // Funçao getActives
 // Parado desde 17/07/2023
@@ -651,3 +545,12 @@ export async function getActives(ticker = null) {
       'Participação dos Não Controladores',
     ];
 */
+
+
+async function iniciar(ticker: string) {
+  const teste = new TickerFetcher(ticker)
+  await teste.initialize()
+  console.log(teste.getBasicInfo())
+}
+
+iniciar("BBAS3")
